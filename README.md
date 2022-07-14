@@ -8,6 +8,13 @@
 
 **chess** is a set of go packages which provide common chess utilities such as move generation, turn management, checkmate detection, PGN encoding, UCI interoperability, image generation, opening book exploration, and others.  It is well tested and optimized for performance.   
 
+Already, the PGN scanner is much faster; compare [this test](scanner_test.go) backported to upstream:
+```
+$ benchstat old_scan.txt new_scan.txt
+name          old time/op  new time/op  delta
+BigScanner-4   20.7s  1%   10.4s  3%  -49.78%  (p=0.008 n=5+5)
+```
+
 **chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing at least), and is ideally more ergonomic to use.
 
 ![rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1](example.png)    
