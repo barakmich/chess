@@ -6,46 +6,46 @@ import (
 	"strings"
 )
 
-// Encoder is the interface implemented by objects that can
-// encode a move into a string given the position.  It is not
-// the encoders responsibility to validate the move.
-type Encoder interface {
-	Encode(pos *Position, m *Move) string
+type Notation int
+
+const (
+	SANNotation = iota
+	UCINotation
+	LongAlgebraicNotation
+)
+
+func (pos *Position) EncodeMove(m *Move, n Notation) string {
+	switch n {
+	case SANNotation:
+		return pos.EncodeSAN(m)
+	case UCINotation:
+		return pos.EncodeUCI(m)
+	case LongAlgebraicNotation:
+		return pos.EncodeLongAlgebraic(m)
+	}
+	panic("unreachable")
 }
 
-// Decoder is the interface implemented by objects that can
-// decode a string into a move given the position. It is not
-// the decoders responsibility to validate the move.  An error
-// is returned if the string could not be decoded.
-type Decoder interface {
-	Decode(pos *Position, s string) (*Move, error)
-}
-
-// Notation is the interface implemented by objects that can
-// encode and decode moves.
-type Notation interface {
-	Encoder
-	Decoder
-}
-
-// UCINotation is a more computer friendly alternative to algebraic
-// notation.  This notation uses the same format as the UCI (Universal Chess
-// Interface).  Examples: e2e4, e7e5, e1g1 (white short castling), e7e8q (for promotion)
-type UCINotation struct{}
-
-// String implements the fmt.Stringer interface and returns
-// the notation's name.
-func (UCINotation) String() string {
-	return "UCI Notation"
+func (pos *Position) DecodeMove(s string) (*Move, error) {
+	if m, err := pos.DecodeSAN(s); err == nil {
+		return m, nil
+	}
+	if m, err := pos.DecodeLongAlgebraic(s); err == nil {
+		return m, nil
+	}
+	if m, err := pos.DecodeUCI(s); err == nil {
+		return m, nil
+	}
+	return nil, fmt.Errorf(`chess: failed to decode notation text "%s" for position %s`, s, pos)
 }
 
 // Encode implements the Encoder interface.
-func (UCINotation) Encode(pos *Position, m *Move) string {
+func (pos *Position) EncodeUCI(m *Move) string {
 	return m.S1().String() + m.S2().String() + m.Promo().String()
 }
 
 // Decode implements the Decoder interface.
-func (UCINotation) Decode(pos *Position, s string) (*Move, error) {
+func (pos *Position) DecodeUCI(s string) (*Move, error) {
 	l := len(s)
 	err := fmt.Errorf(`chess: failed to decode long algebraic notation text "%s" for position %s`, s, pos)
 	if l < 4 || l > 5 {
@@ -90,23 +90,11 @@ func (UCINotation) Decode(pos *Position, s string) (*Move, error) {
 	return m, nil
 }
 
-// AlgebraicNotation (or Standard Algebraic Notation) is the
-// official chess notation used by FIDE. Examples: e4, e5,
-// O-O (short castling), e8=Q (promotion)
-type AlgebraicNotation struct{}
-
-// String implements the fmt.Stringer interface and returns
-// the notation's name.
-func (AlgebraicNotation) String() string {
-	return "Algebraic Notation"
+func (pos *Position) EncodeSAN(m *Move) string {
+	return pos.encodeSANInternal(m, nil)
 }
 
-// Encode implements the Encoder interface.
-func (alg AlgebraicNotation) Encode(pos *Position, m *Move) string {
-	return alg.encodeInternal(pos, m, nil)
-}
-
-func (AlgebraicNotation) encodeInternal(pos *Position, m *Move, validMoves []*Move) string {
+func (pos *Position) encodeSANInternal(m *Move, validMoves []*Move) string {
 	checkChar := getCheckChar(pos, m)
 	if m.HasTag(KingSideCastle) {
 		return "O-O" + checkChar
@@ -153,12 +141,12 @@ type moveAndStr struct {
 }
 
 // Decode implements the Decoder interface.
-func (AlgebraicNotation) Decode(pos *Position, s string) (*Move, error) {
+func (pos *Position) DecodeSAN(s string) (*Move, error) {
 	var validMoveStrings []moveAndStr
 
 	validMoves := pos.ValidMoves()
 	for _, m := range validMoves {
-		moveStr := AlgebraicNotation{}.encodeInternal(pos, m, validMoves)
+		moveStr := pos.encodeSANInternal(m, validMoves)
 		validMoveStrings = append(validMoveStrings, moveAndStr{str: moveStr, move: m})
 	}
 
@@ -228,20 +216,7 @@ func (AlgebraicNotation) Decode(pos *Position, s string) (*Move, error) {
 	return nil, fmt.Errorf("chess: could not decode algebraic notation %s for position %s", s, pos.String())
 }
 
-// LongAlgebraicNotation is a fully expanded version of
-// algebraic notation in which the starting and ending
-// squares are specified.
-// Examples: e2e4, Rd3xd7, O-O (short castling), e7e8=Q (promotion)
-type LongAlgebraicNotation struct{}
-
-// String implements the fmt.Stringer interface and returns
-// the notation's name.
-func (LongAlgebraicNotation) String() string {
-	return "Long Algebraic Notation"
-}
-
-// Encode implements the Encoder interface.
-func (LongAlgebraicNotation) Encode(pos *Position, m *Move) string {
+func (pos *Position) EncodeLongAlgebraic(m *Move) string {
 	checkChar := getCheckChar(pos, m)
 	if m.HasTag(KingSideCastle) {
 		return "O-O" + checkChar
@@ -266,8 +241,8 @@ func (LongAlgebraicNotation) Encode(pos *Position, m *Move) string {
 }
 
 // Decode implements the Decoder interface.
-func (LongAlgebraicNotation) Decode(pos *Position, s string) (*Move, error) {
-	return AlgebraicNotation{}.Decode(pos, s)
+func (pos *Position) DecodeLongAlgebraic(s string) (*Move, error) {
+	return pos.DecodeSAN(s)
 }
 
 func getCheckChar(pos *Position, move *Move) string {

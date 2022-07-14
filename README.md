@@ -8,7 +8,7 @@
 
 **chess** is a set of go packages which provide common chess utilities such as move generation, turn management, checkmate detection, PGN encoding, UCI interoperability, image generation, opening book exploration, and others.  It is well tested and optimized for performance.   
 
-**chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things and provides much better performance.
+**chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing at least), and is ideally more ergonomic to use.
 
 ![rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1](example.png)    
 

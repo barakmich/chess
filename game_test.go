@@ -8,11 +8,10 @@ import (
 
 func TestCheckmate(t *testing.T) {
 	fenStr := "rn1qkbnr/pbpp1ppp/1p6/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 1"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := NewGame(fen)
 	if err := g.MoveStr("Qxf7#"); err != nil {
 		t.Fatal(err)
 	}
@@ -25,11 +24,10 @@ func TestCheckmate(t *testing.T) {
 
 	// Checkmate on castle
 	fenStr = "Q7/5Qp1/3k2N1/7p/8/4B3/PP3PPP/R3K2R w KQ - 0 31"
-	fen, err = FEN(fenStr)
+	g, err = NewGameFromFEN(fenStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g = NewGame(fen)
 	if err := g.MoveStr("O-O-O"); err != nil {
 		t.Fatal(err)
 	}
@@ -43,11 +41,10 @@ func TestCheckmate(t *testing.T) {
 
 func TestCheckmateFromFen(t *testing.T) {
 	fenStr := "rn1qkbnr/pbpp1Qpp/1p6/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 1"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := NewGame(fen)
 	if g.Method() != Checkmate {
 		t.Error(g.Position().Board().Draw())
 		t.Fatalf("expected method %s but got %s", Checkmate, g.Method())
@@ -59,11 +56,10 @@ func TestCheckmateFromFen(t *testing.T) {
 
 func TestStalemate(t *testing.T) {
 	fenStr := "k1K5/8/8/8/8/8/8/1Q6 w - - 0 1"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := NewGame(fen)
 	if err := g.MoveStr("Qb6"); err != nil {
 		t.Fatal(err)
 	}
@@ -78,11 +74,10 @@ func TestStalemate(t *testing.T) {
 // position shouldn't result in stalemate because pawn can move http://en.lichess.org/Pc6mJDZN#138
 func TestInvalidStalemate(t *testing.T) {
 	fenStr := "8/3P4/8/8/8/7k/7p/7K w - - 2 70"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := NewGame(fen)
 	if err := g.MoveStr("d8=Q"); err != nil {
 		t.Fatal(err)
 	}
@@ -144,24 +139,33 @@ func TestFiveFoldRepetition(t *testing.T) {
 }
 
 func TestFiftyMoveRule(t *testing.T) {
-	fen, _ := FEN("2r3k1/1q1nbppp/r3p3/3pP3/pPpP4/P1Q2N2/2RN1PPP/2R4K b - b3 100 60")
-	g := NewGame(fen)
+	fenStr := "2r3k1/1q1nbppp/r3p3/3pP3/pPpP4/P1Q2N2/2RN1PPP/2R4K b - b3 100 60"
+	g, err := NewGameFromFEN(fenStr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := g.Draw(FiftyMoveRule); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestInvalidFiftyMoveRule(t *testing.T) {
-	fen, _ := FEN("2r3k1/1q1nbppp/r3p3/3pP3/pPpP4/P1Q2N2/2RN1PPP/2R4K b - b3 99 60")
-	g := NewGame(fen)
+	fenStr := "2r3k1/1q1nbppp/r3p3/3pP3/pPpP4/P1Q2N2/2RN1PPP/2R4K b - b3 99 60"
+	g, err := NewGameFromFEN(fenStr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := g.Draw(FiftyMoveRule); err == nil {
 		t.Fatal("should require fifty moves")
 	}
 }
 
 func TestSeventyFiveMoveRule(t *testing.T) {
-	fen, _ := FEN("2r3k1/1q1nbppp/r3p3/3pP3/pPpP4/P1Q2N2/2RN1PPP/2R4K b - b3 149 80")
-	g := NewGame(fen)
+	fenStr := "2r3k1/1q1nbppp/r3p3/3pP3/pPpP4/P1Q2N2/2RN1PPP/2R4K b - b3 149 80"
+	g, err := NewGameFromFEN(fenStr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := g.MoveStr("Kf8"); err != nil {
 		t.Fatal(err)
 	}
@@ -179,11 +183,10 @@ func TestInsufficientMaterial(t *testing.T) {
 		"4b3/2k5/2b5/8/8/3K1B2/8/8 w - - 1 1",
 	}
 	for _, f := range fens {
-		fen, err := FEN(f)
+		g, err := NewGameFromFEN(f)
 		if err != nil {
 			t.Fatal(err)
 		}
-		g := NewGame(fen)
 		if g.Outcome() != Draw || g.Method() != InsufficientMaterial {
 			log.Println(g.Position().Board().Draw())
 			t.Fatalf("%s should automatically draw by insufficient material", f)
@@ -201,11 +204,10 @@ func TestSufficientMaterial(t *testing.T) {
 		"8/2k5/8/8/8/3KR3/8/8 w - - 1 1",
 	}
 	for _, f := range fens {
-		fen, err := FEN(f)
+		g, err := NewGameFromFEN(f)
 		if err != nil {
 			t.Fatal(err)
 		}
-		g := NewGame(fen)
 		if g.Outcome() != NoOutcome {
 			log.Println(g.Position().Board().Draw())
 			t.Fatalf("%s should not find insufficient material", f)
@@ -217,11 +219,10 @@ func TestSerializationCycle(t *testing.T) {
 	g := NewGame()
 	g.MoveStr("e4")
 	g.MoveStr("e5")
-	pgn, err := PGN(strings.NewReader(g.String()))
+	cp, err := NewGameFromPGN(strings.NewReader(g.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	cp := NewGame(pgn)
 	if cp.String() != g.String() {
 		t.Fatalf("expected %s but got %s", g.String(), cp.String())
 	}
@@ -268,11 +269,10 @@ func TestPositionHash(t *testing.T) {
 func TestMoveHistory(t *testing.T) {
 	lens := []int{89, 89, 5, 26}
 	for i, test := range validPGNs[0:4] {
-		pgn, err := PGN(strings.NewReader(test.PGN))
+		game, err := NewGameFromPGN(strings.NewReader(test.PGN))
 		if err != nil {
 			t.Fatal(err)
 		}
-		game := NewGame(pgn)
 		l := len(game.MoveHistory())
 		if lens[i] != l {
 			t.Fatalf("expected history length to be %d but got %d", lens[i], l)
@@ -282,11 +282,10 @@ func TestMoveHistory(t *testing.T) {
 
 func BenchmarkStalemateStatus(b *testing.B) {
 	fenStr := "k1K5/8/8/8/8/8/8/1Q6 w - - 0 1"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		b.Fatal(err)
 	}
-	g := NewGame(fen)
 	if err := g.MoveStr("Qb6"); err != nil {
 		b.Fatal(err)
 	}
@@ -298,11 +297,10 @@ func BenchmarkStalemateStatus(b *testing.B) {
 
 func BenchmarkInvalidStalemateStatus(b *testing.B) {
 	fenStr := "8/3P4/8/8/8/7k/7p/7K w - - 2 70"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		b.Fatal(err)
 	}
-	g := NewGame(fen)
 	if err := g.MoveStr("d8=Q"); err != nil {
 		b.Fatal(err)
 	}
@@ -314,11 +312,10 @@ func BenchmarkInvalidStalemateStatus(b *testing.B) {
 
 func BenchmarkPositionHash(b *testing.B) {
 	fenStr := "8/3P4/8/8/8/7k/7p/7K w - - 2 70"
-	fen, err := FEN(fenStr)
+	g, err := NewGameFromFEN(fenStr)
 	if err != nil {
 		b.Fatal(err)
 	}
-	g := NewGame(fen)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		g.Position().Hash()

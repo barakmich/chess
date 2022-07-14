@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/notnil/chess"
+	"github.com/barakmich/chess"
 )
 
 // BookECO represents the Encyclopedia of Chess Openings https://en.wikipedia.org/wiki/Encyclopaedia_of_Chess_Openings

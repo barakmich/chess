@@ -65,10 +65,9 @@ type TagPair struct {
 
 // A Game represents a single chess game.
 type Game struct {
-	notation             Notation
-	tagPairs             []*TagPair
+	Notation             Notation
+	tagPairs             map[string]string
 	moves                []*Move
-	comments             [][]string
 	positions            []*Position
 	pos                  *Position
 	outcome              Outcome
@@ -76,12 +75,11 @@ type Game struct {
 	ignoreAutomaticDraws bool
 }
 
-// PGN takes a reader and returns a function that updates
+// NewGameFromPGN takes a reader and returns a function that creates
 // the game to reflect the PGN data.  The PGN can use any
-// move notation supported by this package.  The returned
-// function is designed to be used in the NewGame constructor.
+// move notation supported by this package.
 // An error is returned if there is a problem parsing the PGN data.
-func PGN(r io.Reader) (func(*Game), error) {
+func NewGameFromPGN(r io.Reader) (*Game, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -90,66 +88,38 @@ func PGN(r io.Reader) (func(*Game), error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(g *Game) {
-		g.copy(game)
-	}, nil
+	return game, nil
 }
 
-// FEN takes a string and returns a function that updates
+// FEN takes a string and returns a function that creates
 // the game to reflect the FEN data.  Since FEN doesn't encode
-// prior moves, the move list will be empty.  The returned
-// function is designed to be used in the NewGame constructor.
+// prior moves, the move list will be empty.
 // An error is returned if there is a problem parsing the FEN data.
-func FEN(fen string) (func(*Game), error) {
+func NewGameFromFEN(fen string) (*Game, error) {
+	g := NewGame()
 	pos, err := decodeFEN(fen)
 	if err != nil {
 		return nil, err
 	}
-	return func(g *Game) {
-		pos.inCheck = isInCheck(pos)
-		g.pos = pos
-		g.positions = []*Position{pos}
-		g.updatePosition()
-	}, nil
-}
-
-// TagPairs returns a function that sets the tag pairs
-// to the given value.  The returned function is designed
-// to be used in the NewGame constructor.
-func TagPairs(tagPairs []*TagPair) func(*Game) {
-	return func(g *Game) {
-		g.tagPairs = append([]*TagPair(nil), tagPairs...)
-	}
-}
-
-// UseNotation returns a function that sets the game's notation
-// to the given value.  The notation is used to parse the
-// string supplied to the MoveStr() method as well as the
-// any PGN output.  The returned function is designed
-// to be used in the NewGame constructor.
-func UseNotation(n Notation) func(*Game) {
-	return func(g *Game) {
-		g.notation = n
-	}
+	pos.inCheck = isInCheck(pos)
+	g.pos = pos
+	g.positions = []*Position{pos}
+	g.updatePosition()
+	return g, nil
 }
 
 // NewGame defaults to returning a game in the standard
 // opening position.  Options can be given to configure
 // the game's initial state.
-func NewGame(options ...func(*Game)) *Game {
+func NewGame() *Game {
 	pos := StartingPosition()
 	game := &Game{
-		notation:  AlgebraicNotation{},
+		Notation:  SANNotation,
 		moves:     []*Move{},
 		pos:       pos,
 		positions: []*Position{pos},
 		outcome:   NoOutcome,
 		method:    NoMethod,
-	}
-	for _, f := range options {
-		if f != nil {
-			f(game)
-		}
 	}
 	return game
 }
@@ -168,11 +138,13 @@ func (g *Game) Move(m *Move) error {
 	return nil
 }
 
-// MoveStr decodes the given string in game's notation
-// and calls the Move function.  An error is returned if
+// MoveStr decodes the given string, trying the obvious notations
+// as though it were a PGN, and calls the Move function.
+// To parse with a
+// An error is returned if
 // the move can't be decoded or the move is invalid.
 func (g *Game) MoveStr(s string) error {
-	m, err := g.notation.Decode(g.pos, s)
+	m, err := g.pos.DecodeMove(s)
 	if err != nil {
 		return err
 	}
@@ -195,14 +167,16 @@ func (g *Game) Moves() []*Move {
 	return append([]*Move(nil), g.moves...)
 }
 
-// Comments returns the comments for the game indexed by moves.
-func (g *Game) Comments() [][]string {
-	return append([][]string(nil), g.comments...)
-}
-
 // TagPairs returns the game's tag pairs.
 func (g *Game) TagPairs() []*TagPair {
-	return append([]*TagPair(nil), g.tagPairs...)
+	if g.tagPairs == nil {
+		return nil
+	}
+	var out []*TagPair
+	for k, v := range g.tagPairs {
+		out = append(out, &TagPair{Key: k, Value: v})
+	}
+	return out
 }
 
 // Position returns the game's current position.
@@ -244,7 +218,7 @@ func (g *Game) UnmarshalText(text []byte) error {
 	if err != nil {
 		return err
 	}
-	g.copy(game)
+	g.mergeInto(game)
 	return nil
 }
 
@@ -299,41 +273,36 @@ func (g *Game) EligibleDraws() []Method {
 // AddTagPair adds or updates a tag pair with the given key and
 // value and returns true if the value is overwritten.
 func (g *Game) AddTagPair(k, v string) bool {
-	for i, tag := range g.tagPairs {
-		if tag.Key == k {
-			g.tagPairs[i].Value = v
-			return true
-		}
+	if g.tagPairs == nil {
+		g.tagPairs = make(map[string]string)
 	}
-	g.tagPairs = append(g.tagPairs, &TagPair{Key: k, Value: v})
-	return false
+	_, ok := g.tagPairs[k]
+	g.tagPairs[k] = v
+	return ok
 }
 
 // GetTagPair returns the tag pair for the given key or nil
 // if it is not present.
 func (g *Game) GetTagPair(k string) *TagPair {
-	for _, tag := range g.tagPairs {
-		if tag.Key == k {
-			return tag
-		}
+	if g.tagPairs == nil {
+		return nil
 	}
-	return nil
+	v, ok := g.tagPairs[k]
+	if !ok {
+		return nil
+	}
+	return &TagPair{Key: k, Value: v}
 }
 
 // RemoveTagPair removes the tag pair for the given key and
 // returns true if a tag pair was removed.
 func (g *Game) RemoveTagPair(k string) bool {
-	cp := []*TagPair{}
-	found := false
-	for _, tag := range g.tagPairs {
-		if tag.Key == k {
-			found = true
-		} else {
-			cp = append(cp, tag)
-		}
+	if g.tagPairs == nil {
+		return false
 	}
-	g.tagPairs = cp
-	return found
+	_, ok := g.tagPairs[k]
+	delete(g.tagPairs, k)
+	return ok
 }
 
 // MoveHistory is a move's result from Game's MoveHistory method.
@@ -343,7 +312,6 @@ type MoveHistory struct {
 	PrePosition  *Position
 	PostPosition *Position
 	Move         *Move
-	Comments     []string
 }
 
 // MoveHistory returns the moves in order along with the pre and post
@@ -355,12 +323,10 @@ func (g *Game) MoveHistory() []*MoveHistory {
 			continue
 		}
 		m := g.moves[i-1]
-		c := g.comments[i-1]
 		mh := &MoveHistory{
 			PrePosition:  g.positions[i-1],
 			PostPosition: p,
 			Move:         m,
-			Comments:     c,
 		}
 		h = append(h, mh)
 	}
@@ -402,20 +368,30 @@ func (g *Game) updatePosition() {
 	}
 }
 
-func (g *Game) copy(game *Game) {
-	g.tagPairs = game.TagPairs()
-	g.moves = game.Moves()
-	g.positions = game.Positions()
-	g.pos = game.pos
-	g.outcome = game.outcome
-	g.method = game.method
-	g.comments = game.Comments()
+func (g *Game) mergeInto(other *Game) {
+	g.Notation = other.Notation
+	g.tagPairs = other.tagPairs
+	g.moves = other.moves
+	g.positions = other.positions
+	g.pos = other.pos
+	g.outcome = other.outcome
+	g.method = other.method
+	g.ignoreAutomaticDraws = other.ignoreAutomaticDraws
 }
 
 func (g *Game) Clone() *Game {
+	var newTags map[string]string
+
+	if g.tagPairs != nil {
+		newTags := make(map[string]string)
+		for k, v := range g.tagPairs {
+			newTags[k] = v
+		}
+	}
+
 	return &Game{
-		tagPairs:  g.TagPairs(),
-		notation:  g.notation,
+		tagPairs:  newTags,
+		Notation:  g.Notation,
 		moves:     g.Moves(),
 		positions: g.Positions(),
 		pos:       g.pos,

@@ -98,56 +98,6 @@ func (s *Scanner) Err() error {
 	return s.err
 }
 
-// GamesFromPGN returns all PGN decoding games from the
-// reader.  It is designed to be used decoding multiple PGNs
-// in the same file.  An error is returned if there is an
-// issue parsing the PGNs.
-// Deprecated: Use Scanner instead.
-func GamesFromPGN(r io.Reader) ([]*Game, error) {
-	games := []*Game{}
-	current := ""
-	count := 0
-	totalCount := 0
-	br := bufio.NewReader(r)
-	eof := false
-	for !eof {
-		line, err := br.ReadString('\n')
-		if err == io.EOF {
-			eof = true
-		} else if err != nil {
-			return nil, err
-		}
-		if strings.TrimSpace(line) == "" {
-			count++
-		} else {
-			current += line
-		}
-		if count == 2 || eof {
-			game, err := decodePGN(current)
-			if err != nil {
-				return nil, err
-			}
-			games = append(games, game)
-			count = 0
-			current = ""
-			totalCount++
-		}
-	}
-	return games, nil
-}
-
-type multiDecoder []Decoder
-
-func (a multiDecoder) Decode(pos *Position, s string) (*Move, error) {
-	for _, d := range a {
-		m, err := d.Decode(pos, s)
-		if err == nil {
-			return m, nil
-		}
-	}
-	return nil, fmt.Errorf(`chess: failed to decode notation text "%s" for position %s`, s, pos)
-}
-
 func decodePGN(pgn string) (*Game, error) {
 	tagPairs := getTagPairs(pgn)
 	moveComments, outcome := moveListWithComments(pgn)
@@ -165,9 +115,8 @@ func decodePGN(pgn string) (*Game, error) {
 	gameFuncs = append(gameFuncs, TagPairs(tagPairs))
 	g := NewGame(gameFuncs...)
 	g.ignoreAutomaticDraws = true
-	decoder := multiDecoder([]Decoder{AlgebraicNotation{}, LongAlgebraicNotation{}, UCINotation{}})
 	for _, move := range moveComments {
-		m, err := decoder.Decode(g.Position(), move.MoveStr)
+		m, err := g.Position().DecodeMove(move.MoveStr)
 		if err != nil {
 			return nil, fmt.Errorf("chess: pgn decode error %s on move %d", err.Error(), g.Position().moveCount)
 		}
@@ -188,7 +137,7 @@ func encodePGN(g *Game) string {
 	s += "\n"
 	for i, move := range g.moves {
 		pos := g.positions[i]
-		txt := g.notation.Encode(pos, move)
+		txt := pos.EncodeMove(move, g.notation)
 		if i%2 == 0 {
 			s += fmt.Sprintf("%d. %s", (i/2)+1, txt)
 		} else {
