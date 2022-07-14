@@ -76,7 +76,10 @@ func (pos *Position) Update(m *Move) *Position {
 	}
 	cr := pos.CastleRights()
 	ncr := pos.updateCastleRights(m)
-	p := pos.board.Piece(m.s1)
+	p := m.piece
+	if p == NoPiece {
+		p = pos.board.Piece(m.s1)
+	}
 	halfMove := pos.halfMoveClock
 	if p.Type() == Pawn || m.HasTag(Capture) || cr != ncr {
 		halfMove = 0
@@ -287,7 +290,10 @@ func (pos *Position) copy() *Position {
 
 func (pos *Position) updateCastleRights(m *Move) CastleRights {
 	cr := string(pos.castleRights)
-	p := pos.board.Piece(m.s1)
+	p := m.piece
+	if p == NoPiece {
+		p = pos.board.Piece(m.s1)
+	}
 	if p == WhiteKing || m.s1 == H1 || m.s2 == H1 {
 		cr = strings.Replace(cr, "K", "", -1)
 	}
@@ -307,7 +313,10 @@ func (pos *Position) updateCastleRights(m *Move) CastleRights {
 }
 
 func (pos *Position) updateEnPassantSquare(m *Move) Square {
-	p := pos.board.Piece(m.s1)
+	p := m.piece
+	if p == NoPiece {
+		p = pos.board.Piece(m.s1)
+	}
 	if p.Type() != Pawn {
 		return NoSquare
 	}

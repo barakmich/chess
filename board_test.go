@@ -88,3 +88,15 @@ func TestBoardTranspose(t *testing.T) {
 		t.Fatalf("expected board string %s but got %s", b, board.String())
 	}
 }
+
+func BenchmarkBoardString(b *testing.B) {
+	g := NewGame()
+	g.MoveStr("e4")
+	g.MoveStr("e5")
+	g.MoveStr("Nc3")
+	board := g.Position().Board()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		board.String()
+	}
+}

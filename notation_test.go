@@ -116,3 +116,28 @@ func TestInvalidDecoding(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkValidAlgebraicDecoding(b *testing.B) {
+	f, err := os.Open("fixtures/valid_notation_tests.json")
+	if err != nil {
+		b.Fatal(err)
+		return
+	}
+
+	validTests := []validNotationTest{}
+	if err := json.NewDecoder(f).Decode(&validTests); err != nil {
+		b.Fatal(err)
+		return
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		for _, test := range validTests {
+			_, err := AlgebraicNotation{}.Decode(test.Pos1, test.AlgText)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}

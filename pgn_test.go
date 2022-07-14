@@ -175,6 +175,7 @@ func mustParsePGN(fname string) string {
 	}
 	return string(b)
 }
+
 func TestGamesFromPGN(t *testing.T) {
 	for _, test := range validPGNs {
 		reader := strings.NewReader(test.PGN)

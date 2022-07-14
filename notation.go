@@ -71,6 +71,7 @@ func (UCINotation) Decode(pos *Position, s string) (*Move, error) {
 		return m, nil
 	}
 	p := pos.Board().Piece(s1)
+	m.piece = p
 	if p.Type() == King {
 		if (s1 == E1 && s2 == G1) || (s1 == E8 && s2 == G8) {
 			m.addTag(KingSideCastle)
@@ -101,16 +102,23 @@ func (AlgebraicNotation) String() string {
 }
 
 // Encode implements the Encoder interface.
-func (AlgebraicNotation) Encode(pos *Position, m *Move) string {
+func (alg AlgebraicNotation) Encode(pos *Position, m *Move) string {
+	return alg.encodeInternal(pos, m, nil)
+}
+
+func (AlgebraicNotation) encodeInternal(pos *Position, m *Move, validMoves []*Move) string {
 	checkChar := getCheckChar(pos, m)
 	if m.HasTag(KingSideCastle) {
 		return "O-O" + checkChar
 	} else if m.HasTag(QueenSideCastle) {
 		return "O-O-O" + checkChar
 	}
-	p := pos.Board().Piece(m.S1())
+	p := m.piece
+	if p == NoPiece {
+		p = pos.Board().Piece(m.S1())
+	}
 	pChar := charFromPieceType(p.Type())
-	s1Str := formS1(pos, m)
+	s1Str := formS1(pos, m, validMoves)
 	capChar := ""
 	if m.HasTag(Capture) || m.HasTag(EnPassant) {
 		capChar = "x"
@@ -119,62 +127,104 @@ func (AlgebraicNotation) Encode(pos *Position, m *Move) string {
 		}
 	}
 	promoText := charForPromo(m.promo)
-	return pChar + s1Str + capChar + m.s2.String() + promoText + checkChar
+	var sb strings.Builder
+	sb.WriteString(pChar)
+	sb.WriteString(s1Str)
+	sb.WriteString(capChar)
+	sb.WriteString(m.s2.String())
+	sb.WriteString(promoText)
+	sb.WriteString(checkChar)
+	return sb.String()
 }
 
 var pgnRegex = regexp.MustCompile(`^(?:([RNBQKP]?)([abcdefgh]?)(\d?)(x?)([abcdefgh])(\d)(=[QRBN])?|(O-O(?:-O)?))([+#!?]|e\.p\.)*$`)
 
-func algebraicNotationParts(s string) (string, string, string, string, string, string, string, string, error) {
+func algebraicNotationParts(s string) ([]string, error) {
 	submatches := pgnRegex.FindStringSubmatch(s)
 	if len(submatches) == 0 {
-		return "", "", "", "", "", "", "", "", fmt.Errorf("could not decode algebraic notation %s", s)
+		return nil, fmt.Errorf("could not decode algebraic notation %s", s)
 	}
+	return submatches, nil
+}
 
-	return submatches[1], submatches[2], submatches[3], submatches[4], submatches[5], submatches[6], submatches[7], submatches[8], nil
+type moveAndStr struct {
+	str  string
+	move *Move
 }
 
 // Decode implements the Decoder interface.
 func (AlgebraicNotation) Decode(pos *Position, s string) (*Move, error) {
-	piece, originFile, originRank, capture, file, rank, promotes, castles, err := algebraicNotationParts(s)
+	var validMoveStrings []moveAndStr
+
+	validMoves := pos.ValidMoves()
+	for _, m := range validMoves {
+		moveStr := AlgebraicNotation{}.encodeInternal(pos, m, validMoves)
+		validMoveStrings = append(validMoveStrings, moveAndStr{str: moveStr, move: m})
+	}
+
+	for _, move := range validMoveStrings {
+		if strings.HasPrefix(move.str, s) {
+			return move.move, nil
+		}
+	}
+
+	submatches, err := algebraicNotationParts(s)
 	if err != nil {
 		return nil, fmt.Errorf("chess: %+v for position %s", err, pos.String())
 	}
+	piece := submatches[1]
+	originFile := submatches[2]
+	originRank := submatches[3]
+	capture := submatches[4]
+	file := submatches[5]
+	rank := submatches[6]
+	promotes := submatches[7]
+	castles := submatches[8]
 
-	for _, m := range pos.ValidMoves() {
-		moveStr := AlgebraicNotation{}.Encode(pos, m)
-		moveSubmatches := pgnRegex.FindStringSubmatch(moveStr)
-		moveCleaned := strings.Join(moveSubmatches[1:9], "")
+	var sb strings.Builder
+	sb.WriteString(piece)
+	sb.WriteString(originFile)
+	sb.WriteString(originRank)
+	sb.WriteString(capture)
+	sb.WriteString(file)
+	sb.WriteString(rank)
+	sb.WriteString(promotes)
+	sb.WriteString(castles)
+	cleaned := sb.String()
 
-		cleaned := piece + originFile + originRank + capture + file + rank + promotes + castles
-		if cleaned == moveCleaned {
-			return m, nil
+	for _, move := range validMoveStrings {
+		if strings.HasPrefix(move.str, cleaned) {
+			return move.move, nil
 		}
+	}
 
-		// Try and remove the disambiguators and see if it parses. Sometimes they
-		// get extraneously added.
-		options := []string{}
+	// Try and remove the disambiguators and see if it parses. Sometimes they
+	// get extraneously added.
+	options := []string{}
 
-		if piece != "" {
-			options = append(options, piece+capture+file+rank+promotes+castles)            // no origin
-			options = append(options, piece+originRank+capture+file+rank+promotes+castles) // no origin file
+	if piece != "" {
+		options = append(options, piece+capture+file+rank+promotes+castles)            // no origin
+		options = append(options, piece+originRank+capture+file+rank+promotes+castles) // no origin file
+		options = append(options, piece+originFile+capture+file+rank+promotes+castles) // no origin rank
+	} else {
+		if capture != "" {
+			// Possibly a pawn capture. In order to parse things like d4xe5, we need
+			// to try parsing without the rank.
 			options = append(options, piece+originFile+capture+file+rank+promotes+castles) // no origin rank
-		} else {
-			if capture != "" {
-				// Possibly a pawn capture. In order to parse things like d4xe5, we need
-				// to try parsing without the rank.
-				options = append(options, piece+originFile+capture+file+rank+promotes+castles) // no origin rank
-			}
-			if originFile != "" && originRank != "" {
-				options = append(options, piece+capture+file+rank+promotes+castles) // no origin
-			}
 		}
+		if originFile != "" && originRank != "" {
+			options = append(options, piece+capture+file+rank+promotes+castles) // no origin
+		}
+	}
 
+	for _, move := range validMoveStrings {
 		for _, opt := range options {
-			if opt == moveCleaned {
-				return m, nil
+			if strings.HasPrefix(move.str, opt) {
+				return move.move, nil
 			}
 		}
 	}
+
 	return nil, fmt.Errorf("chess: could not decode algebraic notation %s for position %s", s, pos.String())
 }
 
@@ -198,7 +248,10 @@ func (LongAlgebraicNotation) Encode(pos *Position, m *Move) string {
 	} else if m.HasTag(QueenSideCastle) {
 		return "O-O-O" + checkChar
 	}
-	p := pos.Board().Piece(m.S1())
+	p := m.piece
+	if p == NoPiece {
+		p = pos.Board().Piece(m.S1())
+	}
 	pChar := charFromPieceType(p.Type())
 	s1Str := m.s1.String()
 	capChar := ""
@@ -228,17 +281,23 @@ func getCheckChar(pos *Position, move *Move) string {
 	return "+"
 }
 
-func formS1(pos *Position, m *Move) string {
-	p := pos.board.Piece(m.s1)
-	if p.Type() == Pawn {
+func formS1(pos *Position, m *Move, moves []*Move) string {
+	p := m.piece
+	if p == NoPiece {
+		p = pos.board.Piece(m.s1)
+	}
+	if p.Type() == Pawn || p.Type() == King {
 		return ""
 	}
 
 	var req, fileReq, rankReq bool
-	moves := pos.ValidMoves()
+	if moves == nil {
+		moves = pos.ValidMoves()
+	}
 
 	for _, mv := range moves {
-		if mv.s1 != m.s1 && mv.s2 == m.s2 && p == pos.board.Piece(mv.s1) {
+		otherPiece := mv.piece
+		if mv.s1 != m.s1 && mv.s2 == m.s2 && p == otherPiece {
 			req = true
 
 			if mv.s1.File() == m.s1.File() {

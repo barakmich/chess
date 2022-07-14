@@ -61,7 +61,7 @@ func standardMoves(pos *Position, first bool) []*Move {
 				// add promotions if pawn on promo square
 				if (p == WhitePawn && Square(s2).Rank() == Rank8) || (p == BlackPawn && Square(s2).Rank() == Rank1) {
 					for _, pt := range promoPieceTypes {
-						m := &Move{s1: Square(s1), s2: Square(s2), promo: pt}
+						m := &Move{piece: p, s1: Square(s1), s2: Square(s2), promo: pt}
 						addTags(m, pos)
 						// filter out moves that put king into check
 						if !m.HasTag(inCheck) {
@@ -72,7 +72,7 @@ func standardMoves(pos *Position, first bool) []*Move {
 						}
 					}
 				} else {
-					m := &Move{s1: Square(s1), s2: Square(s2)}
+					m := &Move{piece: p, s1: Square(s1), s2: Square(s2)}
 					addTags(m, pos)
 					// filter out moves that put king into check
 					if !m.HasTag(inCheck) {
@@ -89,7 +89,10 @@ func standardMoves(pos *Position, first bool) []*Move {
 }
 
 func addTags(m *Move, pos *Position) {
-	p := pos.board.Piece(m.s1)
+	p := m.piece
+	if p == NoPiece {
+		p = pos.board.Piece(m.s1)
+	}
 	if pos.board.isOccupied(m.s2) {
 		m.addTag(Capture)
 	} else if m.s2 == pos.enPassantSquare && p.Type() == Pawn {
@@ -210,7 +213,7 @@ func castleMoves(pos *Position) []*Move {
 		(^pos.board.emptySqs&(bbForSquare(F1)|bbForSquare(G1))) == 0 &&
 		!squaresAreAttacked(pos, F1, G1) &&
 		!pos.inCheck {
-		m := &Move{s1: E1, s2: G1}
+		m := &Move{piece: WhiteKing, s1: E1, s2: G1}
 		m.addTag(KingSideCastle)
 		addTags(m, pos)
 		moves = append(moves, m)
@@ -220,7 +223,7 @@ func castleMoves(pos *Position) []*Move {
 		(^pos.board.emptySqs&(bbForSquare(B1)|bbForSquare(C1)|bbForSquare(D1))) == 0 &&
 		!squaresAreAttacked(pos, C1, D1) &&
 		!pos.inCheck {
-		m := &Move{s1: E1, s2: C1}
+		m := &Move{piece: WhiteKing, s1: E1, s2: C1}
 		m.addTag(QueenSideCastle)
 		addTags(m, pos)
 		moves = append(moves, m)
@@ -230,7 +233,7 @@ func castleMoves(pos *Position) []*Move {
 		(^pos.board.emptySqs&(bbForSquare(F8)|bbForSquare(G8))) == 0 &&
 		!squaresAreAttacked(pos, F8, G8) &&
 		!pos.inCheck {
-		m := &Move{s1: E8, s2: G8}
+		m := &Move{piece: BlackKing, s1: E8, s2: G8}
 		m.addTag(KingSideCastle)
 		addTags(m, pos)
 		moves = append(moves, m)
@@ -240,7 +243,7 @@ func castleMoves(pos *Position) []*Move {
 		(^pos.board.emptySqs&(bbForSquare(B8)|bbForSquare(C8)|bbForSquare(D8))) == 0 &&
 		!squaresAreAttacked(pos, C8, D8) &&
 		!pos.inCheck {
-		m := &Move{s1: E8, s2: C8}
+		m := &Move{piece: BlackKing, s1: E8, s2: C8}
 		m.addTag(QueenSideCastle)
 		addTags(m, pos)
 		moves = append(moves, m)

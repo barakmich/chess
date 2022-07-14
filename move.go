@@ -21,6 +21,7 @@ const (
 
 // A Move is the movement of a piece from one square to another.
 type Move struct {
+	piece Piece
 	s1    Square
 	s2    Square
 	promo PieceType

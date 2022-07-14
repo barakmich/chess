@@ -138,6 +138,21 @@ var (
 		"p": BlackPawn,
 	}
 
+	fenReverseMap = map[Piece]byte{
+		WhiteKing:   'K',
+		WhiteQueen:  'Q',
+		WhiteRook:   'R',
+		WhiteBishop: 'B',
+		WhiteKnight: 'N',
+		WhitePawn:   'P',
+		BlackKing:   'k',
+		BlackQueen:  'q',
+		BlackRook:   'r',
+		BlackBishop: 'b',
+		BlackKnight: 'n',
+		BlackPawn:   'p',
+	}
+
 	fenTurnMap = map[string]Color{
 		"w": White,
 		"b": Black,

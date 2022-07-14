@@ -128,21 +128,29 @@ func (b *Board) Draw() string {
 // String implements the fmt.Stringer interface and returns
 // a string in the FEN board format: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR
 func (b *Board) String() string {
-	fen := ""
+	expandedFen := []byte{
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1', '/',
+		'1', '1', '1', '1', '1', '1', '1', '1',
+	}
+	offset := 0
 	for r := 7; r >= 0; r-- {
 		for f := 0; f < numOfSquaresInRow; f++ {
 			sq := NewSquare(File(f), Rank(r))
 			p := b.Piece(sq)
 			if p != NoPiece {
-				fen += p.getFENChar()
-			} else {
-				fen += "1"
+				expandedFen[offset] = fenReverseMap[p]
 			}
+			offset += 1
 		}
-		if r != 0 {
-			fen += "/"
-		}
+		offset += 1
 	}
+	fen := string(expandedFen)
 	for i := 8; i > 1; i-- {
 		repeatStr := strings.Repeat("1", i)
 		countStr := strconv.Itoa(i)
@@ -153,6 +161,9 @@ func (b *Board) String() string {
 
 // Piece returns the piece for the given square.
 func (b *Board) Piece(sq Square) Piece {
+	if !b.isOccupied(sq) {
+		return NoPiece
+	}
 	for _, p := range allPieces {
 		bb := b.bbForPiece(p)
 		if bb.Occupied(sq) {
@@ -216,7 +227,10 @@ func (b *Board) UnmarshalBinary(data []byte) error {
 }
 
 func (b *Board) update(m *Move) {
-	p1 := b.Piece(m.s1)
+	p1 := m.piece
+	if p1 == NoPiece {
+		p1 = b.Piece(m.s1)
+	}
 	s1BB := bbForSquare(m.s1)
 	s2BB := bbForSquare(m.s2)
 
