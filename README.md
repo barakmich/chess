@@ -8,18 +8,26 @@
 
 **chess** is a set of go packages which provide common chess utilities such as move generation, turn management, checkmate detection, PGN encoding, UCI interoperability, image generation, opening book exploration, and others.  It is well tested and optimized for performance.   
 
+## This Fork
+
 **chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing at least), and is ideally more ergonomic to use.
 
-Already, the PGN scanner is much faster; compare [this test](scanner_test.go) backported to upstream:
+Already, the PGN scanner is much faster; compare [this test that parses real data](scanner_test.go) from [https://database.lichess.org] backported to upstream:
 ```
 $ benchstat old_scan.txt new_scan.txt
 name          old time/op  new time/op  delta
 BigScanner-4   20.7s  1%   10.4s  3%  -49.78%  (p=0.008 n=5+5)
 ```
 
+But the real win comes when you can make use of Go's strengths! Goroutines!:
+```
+$ benchstat parallelbench.txt
+name                  time/op
+ParallelBigScanner-4  1.38s  0%
+BigScanner-4          10.9s  0%
+```
 
-![rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1](example.png)    
-
+So if you're parsing a lot of PGNs, you'll get about a 20x improvement.
 
 ## Repo Structure
 
