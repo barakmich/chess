@@ -12,14 +12,14 @@
 
 **chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing at least), and is ideally more ergonomic to use.
 
-Already, the PGN scanner is much faster; compare [this test that parses real data](scanner_test.go) from [https://database.lichess.org] backported to upstream:
+Already, the PGN scanner is much faster; compare [this test that parses real data](scanner_test.go) from https://database.lichess.org backported to upstream:
 ```
 $ benchstat old_scan.txt new_scan.txt
 name          old time/op  new time/op  delta
 BigScanner-4   20.7s  1%   10.4s  3%  -49.78%  (p=0.008 n=5+5)
 ```
 
-But the real win comes when you can make use of Go's strengths! Goroutines!:
+But the real win comes when you can make use of Go's strengths! Goroutines!
 ```
 $ benchstat parallelbench.txt
 name                  time/op
@@ -27,7 +27,8 @@ ParallelBigScanner-4  1.38s  0%
 BigScanner-4          10.9s  0%
 ```
 
-So if you're parsing a lot of PGNs, you'll get about a 20x improvement.
+This is a pretty modest machine -- 4 cores. On my bigger 12 core box it's about 670ms. 
+So if you're parsing a lot of PGNs, you can get about a 40x improvement using this package.
 
 ## Repo Structure
 
