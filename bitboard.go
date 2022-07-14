@@ -10,17 +10,14 @@ import (
 type bitboard uint64
 
 func newBitboard(m map[Square]bool) bitboard {
-	s := ""
+	var bb uint64
+	mask := uint64(0b1 << 63)
+
 	for sq := 0; sq < numOfSquaresInBoard; sq++ {
 		if m[Square(sq)] {
-			s += "1"
-		} else {
-			s += "0"
+			bb = bb | mask
 		}
-	}
-	bb, err := strconv.ParseUint(s, 2, 64)
-	if err != nil {
-		panic(err)
+		mask = mask >> 1
 	}
 	return bitboard(bb)
 }
