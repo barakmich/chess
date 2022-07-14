@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -15,16 +13,9 @@ import (
 	"github.com/barakmich/chess/uci"
 )
 
-var StockfishPath string
-
-func init() {
-	dir, _ := os.Getwd()
-	StockfishPath = filepath.Join(dir, "..", "stockfish")
-}
-
 func Example() {
 	// set up engine to use stockfish exe
-	eng, err := uci.New(StockfishPath)
+	eng, err := uci.New("stockfish")
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +41,7 @@ func Example() {
 }
 
 func TestEngine(t *testing.T) {
-	eng, err := uci.New(StockfishPath)
+	eng, err := uci.New("stockfish")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +67,7 @@ func TestEngine(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	eng, err := uci.New(StockfishPath)
+	eng, err := uci.New("stockfish")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +91,7 @@ func TestLogger(t *testing.T) {
 
 	b := bytes.NewBuffer([]byte{})
 	logger := log.New(b, "", 0)
-	eng, err := uci.New(StockfishPath, uci.Debug, uci.Logger(logger))
+	eng, err := uci.New("stockfish", uci.Debug, uci.Logger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,8 +125,8 @@ const (
 Stockfish 14.1 by the Stockfish developers (see AUTHORS file)
 id name Stockfish 14.1
 id author the Stockfish developers (see AUTHORS file)
-	
-option name Debug Log File type string default 
+
+option name Debug Log File type string default
 option name Threads type spin default 1 min 1 max 512
 option name Hash type spin default 16 min 1 max 33554432
 option name Clear Hash type button

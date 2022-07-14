@@ -33,8 +33,7 @@ func (o *Opening) PGN() string {
 // Game returns the opening as a game.
 func (o *Opening) Game() *chess.Game {
 	if o.game == nil {
-		pgn, _ := chess.PGN(bytes.NewBufferString(o.pgn))
-		o.game = chess.NewGame(pgn)
+		o.game, _ = chess.NewGameFromPGN(bytes.NewBufferString(o.pgn))
 	}
 	return o.game
 }

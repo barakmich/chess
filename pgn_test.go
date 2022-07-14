@@ -93,47 +93,47 @@ var (
 	}
 )
 
-func TestCommentsDetection(t *testing.T) {
-	for _, test := range commentTests {
-		game, err := decodePGN(test.PGN)
-		if err != nil {
-			t.Fatal(err)
-		}
-		comment := strings.Join(game.Comments()[test.MoveNumber], " ")
-		if comment != test.CommentText {
-			t.Fatalf("expected pgn comment to be %s but got %s", test.CommentText, comment)
-		}
-	}
-}
+//func TestCommentsDetection(t *testing.T) {
+//for _, test := range commentTests {
+//game, err := decodePGN(test.PGN)
+//if err != nil {
+//t.Fatal(err)
+//}
+//comment := strings.Join(game.Comments()[test.MoveNumber], " ")
+//if comment != test.CommentText {
+//t.Fatalf("expected pgn comment to be %s but got %s", test.CommentText, comment)
+//}
+//}
+//}
 
-func TestNewGameComments(t *testing.T) {
-	for _, test := range commentTests {
-		pgn, err := PGN(strings.NewReader(test.PGN))
-		if err != nil {
-			t.Fatal(err)
-		}
-		game := NewGame(pgn)
-		comment := strings.Join(game.Comments()[test.MoveNumber], " ")
-		if comment != test.CommentText {
-			t.Fatalf("expected pgn comment to be %s but got %s", test.CommentText, comment)
-		}
-	}
-}
+//func TestNewGameComments(t *testing.T) {
+//for _, test := range commentTests {
+//pgn, err := PGN(strings.NewReader(test.PGN))
+//if err != nil {
+//t.Fatal(err)
+//}
+//game := NewGame(pgn)
+//comment := strings.Join(game.Comments()[test.MoveNumber], " ")
+//if comment != test.CommentText {
+//t.Fatalf("expected pgn comment to be %s but got %s", test.CommentText, comment)
+//}
+//}
+//}
 
-func TestWriteComments(t *testing.T) {
-	pgn := mustParsePGN("fixtures/pgns/0005.pgn")
-	game, err := decodePGN(pgn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	game, err = decodePGN(game.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(game.Comments()[7]) != 2 {
-		t.Fatalf("expected %d comments for move 7 but got %d", 2, len(game.Comments()[7]))
-	}
-}
+//func TestWriteComments(t *testing.T) {
+//pgn := mustParsePGN("fixtures/pgns/0005.pgn")
+//game, err := decodePGN(pgn)
+//if err != nil {
+//t.Fatal(err)
+//}
+//game, err = decodePGN(game.String())
+//if err != nil {
+//t.Fatal(err)
+//}
+//if len(game.Comments()[7]) != 2 {
+//t.Fatalf("expected %d comments for move 7 but got %d", 2, len(game.Comments()[7]))
+//}
+//}
 
 func TestScanner(t *testing.T) {
 	for _, fname := range []string{"fixtures/pgns/0006.pgn", "fixtures/pgns/0007.pgn"} {
@@ -158,8 +158,7 @@ func BenchmarkPGN(b *testing.B) {
 	pgn := mustParsePGN("fixtures/pgns/0001.pgn")
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		opt, _ := PGN(strings.NewReader(pgn))
-		NewGame(opt)
+		NewGameFromPGN(strings.NewReader(pgn))
 	}
 }
 
@@ -174,17 +173,4 @@ func mustParsePGN(fname string) string {
 		panic(err)
 	}
 	return string(b)
-}
-
-func TestGamesFromPGN(t *testing.T) {
-	for _, test := range validPGNs {
-		reader := strings.NewReader(test.PGN)
-		games, err := GamesFromPGN(reader)
-		if err != nil {
-			t.Fatalf("fail to read games from valid pgn: %s", err.Error())
-		}
-		if len(games) != 1 {
-			t.Fatalf("expected to get 1 game from pgn, got %d", len(games))
-		}
-	}
 }

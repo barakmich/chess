@@ -26,7 +26,17 @@ func (pos *Position) EncodeMove(m *Move, n Notation) string {
 	panic("unreachable")
 }
 
-func (pos *Position) DecodeMove(s string) (*Move, error) {
+func (pos *Position) DecodeMove(s string, n ...Notation) (*Move, error) {
+	if len(n) != 0 {
+		switch n[0] {
+		case SANNotation:
+			return pos.DecodeSAN(s)
+		case UCINotation:
+			return pos.DecodeUCI(s)
+		case LongAlgebraicNotation:
+			return pos.DecodeLongAlgebraic(s)
+		}
+	}
 	if m, err := pos.DecodeSAN(s); err == nil {
 		return m, nil
 	}

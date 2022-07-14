@@ -101,19 +101,23 @@ func (s *Scanner) Err() error {
 func decodePGN(pgn string) (*Game, error) {
 	tagPairs := getTagPairs(pgn)
 	moveComments, outcome := moveListWithComments(pgn)
-	gameFuncs := []func(*Game){}
+	var g *Game
+	var err error
 	for _, tp := range tagPairs {
 		if strings.ToLower(tp.Key) == "fen" {
-			fenFunc, err := FEN(tp.Value)
+			g, err = NewGameFromFEN(tp.Value)
 			if err != nil {
 				return nil, fmt.Errorf("chess: pgn decode error %s on tag %s", err.Error(), tp.Key)
 			}
-			gameFuncs = append(gameFuncs, fenFunc)
 			break
 		}
 	}
-	gameFuncs = append(gameFuncs, TagPairs(tagPairs))
-	g := NewGame(gameFuncs...)
+	if g == nil {
+		g = NewGame()
+	}
+	for _, t := range tagPairs {
+		g.AddTagPair(t.Key, t.Value)
+	}
 	g.ignoreAutomaticDraws = true
 	for _, move := range moveComments {
 		m, err := g.Position().DecodeMove(move.MoveStr)
@@ -123,7 +127,7 @@ func decodePGN(pgn string) (*Game, error) {
 		if err := g.Move(m); err != nil {
 			return nil, fmt.Errorf("chess: pgn invalid move error %s on move %d", err.Error(), g.Position().moveCount)
 		}
-		g.comments = append(g.comments, move.Comments)
+		//TODO(barakmich): reinstate Comments
 	}
 	g.outcome = outcome
 	return g, nil
@@ -131,23 +135,19 @@ func decodePGN(pgn string) (*Game, error) {
 
 func encodePGN(g *Game) string {
 	s := ""
-	for _, tag := range g.tagPairs {
-		s += fmt.Sprintf("[%s \"%s\"]\n", tag.Key, tag.Value)
+	for k, v := range g.tagPairs {
+		s += fmt.Sprintf("[%s \"%s\"]\n", k, v)
 	}
 	s += "\n"
 	for i, move := range g.moves {
 		pos := g.positions[i]
-		txt := pos.EncodeMove(move, g.notation)
+		txt := pos.EncodeMove(move, g.Notation)
 		if i%2 == 0 {
 			s += fmt.Sprintf("%d. %s", (i/2)+1, txt)
 		} else {
 			s += fmt.Sprintf(" %s ", txt)
 		}
-		if len(g.comments) > i {
-			for _, c := range g.comments[i] {
-				s += " { " + c + " } "
-			}
-		}
+		//TODO(barakmich): reinstate comments
 	}
 	s += " " + string(g.outcome)
 	return s

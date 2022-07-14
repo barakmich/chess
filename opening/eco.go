@@ -87,7 +87,7 @@ func (b *BookECO) insert(o *Opening) error {
 	moves := []*chess.Move{}
 	for _, s := range parseMoveList(o.pgn) {
 		pos := posList[len(posList)-1]
-		m, err := chess.UCINotation{}.Decode(pos, s)
+		m, err := pos.DecodeUCI(s)
 		if err != nil {
 			panic(err)
 		}

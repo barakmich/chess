@@ -10,6 +10,14 @@ import (
 	"github.com/barakmich/chess"
 )
 
+func EncodeUCI(m *chess.Move) string {
+	return (*chess.Position)(nil).EncodeUCI(m)
+}
+
+func DecodeUCI(m string) (*chess.Move, error) {
+	return (*chess.Position)(nil).DecodeUCI(m)
+}
+
 // Cmd is a UCI compliant command
 type Cmd interface {
 	fmt.Stringer
@@ -164,7 +172,7 @@ func (cmd CmdPosition) String() string {
 	}
 	moveStrs := []string{}
 	for _, m := range cmd.Moves {
-		mStr := chess.UCINotation{}.Encode(nil, m)
+		mStr := EncodeUCI(m)
 		moveStrs = append(moveStrs, mStr)
 	}
 	return fmt.Sprintf("position fen %s moves %s", cmd.Position, strings.Join(moveStrs, " "))
@@ -265,10 +273,11 @@ func (cmd CmdGo) String() string {
 	if cmd.Infinite {
 		a = append(a, "infinite")
 	}
+	var pos *chess.Position
 	if len(cmd.SearchMoves) > 0 {
 		a = append(a, "searchmoves")
 		for _, m := range cmd.SearchMoves {
-			mStr := chess.UCINotation{}.Encode(nil, m)
+			mStr := pos.EncodeUCI(m)
 			a = append(a, mStr)
 		}
 	}
@@ -286,13 +295,13 @@ func (CmdGo) ProcessResponse(e *Engine) error {
 			if len(parts) <= 1 {
 				return errors.New("best move not found " + text)
 			}
-			bestMove, err := chess.UCINotation{}.Decode(nil, parts[1])
+			bestMove, err := DecodeUCI(parts[1])
 			if err != nil {
 				return err
 			}
 			results.BestMove = bestMove
 			if len(parts) >= 4 {
-				ponderMove, err := chess.UCINotation{}.Decode(nil, parts[3])
+				ponderMove, err := DecodeUCI(parts[3])
 				if err != nil {
 					return err
 				}
