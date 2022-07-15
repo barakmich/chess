@@ -1,5 +1,7 @@
 package chess
 
+import "fmt"
+
 // A MoveTag represents a notable consequence of a move.
 type MoveTag uint16
 
@@ -17,6 +19,8 @@ const (
 	// inCheck indicates that the move puts the moving player in check and
 	// is therefore invalid.
 	inCheck
+	// IsCheckmate indicates that the move puts the opposing player in checkmate.
+	IsCheckmate
 )
 
 // A Move is the movement of a piece from one square to another.
@@ -31,7 +35,8 @@ type Move struct {
 // String returns a string useful for debugging.  String doesn't return
 // algebraic notation.
 func (m *Move) String() string {
-	return m.s1.String() + m.s2.String() + m.promo.PieceType().String()
+	return fmt.Sprintf("%s%s%s", m.s1.String(), m.s2.String(), m.promo.PieceType().String())
+
 }
 
 // S1 returns the origin square of the move.
@@ -49,6 +54,29 @@ func (m *Move) Promo() PieceType {
 	return m.promo.PieceType()
 }
 
+func (m *Move) Eq(other *Move) bool {
+	if m.s1 != other.s1 {
+		return false
+	}
+	if m.s2 != other.s2 {
+		return false
+	}
+	if m.promo != other.promo {
+		return false
+	}
+	return true
+}
+
+func (m *Move) copy() *Move {
+	return &Move{
+		piece: m.piece,
+		s1:    m.s1,
+		s2:    m.s2,
+		promo: m.promo,
+		tags:  m.tags,
+	}
+}
+
 // HasTag returns true if the move contains the MoveTag given.
 func (m *Move) HasTag(tag MoveTag) bool {
 	return (tag & m.tags) > 0
@@ -56,18 +84,4 @@ func (m *Move) HasTag(tag MoveTag) bool {
 
 func (m *Move) addTag(tag MoveTag) {
 	m.tags = m.tags | tag
-}
-
-type moveSlice []*Move
-
-func (a moveSlice) find(m *Move) *Move {
-	if m == nil {
-		return nil
-	}
-	for _, move := range a {
-		if move.String() == m.String() {
-			return move
-		}
-	}
-	return nil
 }

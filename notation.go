@@ -152,17 +152,17 @@ type moveAndStr struct {
 
 // Decode implements the Decoder interface.
 func (pos *Position) DecodeSAN(s string) (*Move, error) {
-	var validMoveStrings []moveAndStr
 
 	pos.ensureValidMoves()
-	for _, m := range pos.validMoves {
+	validMoveStrings := make([]string, len(pos.validMoves))
+	for i, m := range pos.validMoves {
 		moveStr := pos.encodeSANInternal(m, pos.validMoves)
-		validMoveStrings = append(validMoveStrings, moveAndStr{str: moveStr, move: m})
+		validMoveStrings[i] = moveStr
 	}
 
-	for _, move := range validMoveStrings {
-		if strings.HasPrefix(move.str, s) {
-			return move.move, nil
+	for i, moveStr := range validMoveStrings {
+		if strings.HasPrefix(moveStr, s) {
+			return pos.validMoves[i].copy(), nil
 		}
 	}
 
@@ -190,9 +190,9 @@ func (pos *Position) DecodeSAN(s string) (*Move, error) {
 	sb.WriteString(castles)
 	cleaned := sb.String()
 
-	for _, move := range validMoveStrings {
-		if strings.HasPrefix(move.str, cleaned) {
-			return move.move, nil
+	for i, move := range validMoveStrings {
+		if strings.HasPrefix(move, cleaned) {
+			return pos.validMoves[i].copy(), nil
 		}
 	}
 
@@ -215,10 +215,10 @@ func (pos *Position) DecodeSAN(s string) (*Move, error) {
 		}
 	}
 
-	for _, move := range validMoveStrings {
+	for i, move := range validMoveStrings {
 		for _, opt := range options {
-			if strings.HasPrefix(move.str, opt) {
-				return move.move, nil
+			if strings.HasPrefix(move, opt) {
+				return pos.validMoves[i].copy(), nil
 			}
 		}
 	}

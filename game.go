@@ -127,12 +127,20 @@ func NewGame() *Game {
 // Move updates the game with the given move.  An error is returned
 // if the move is invalid or the game has already been completed.
 func (g *Game) Move(m *Move) error {
-	valid := moveSlice(g.ValidMoves()).find(m)
-	if valid == nil {
+	g.pos.ensureValidMoves()
+	valid := false
+	for _, v := range g.pos.validMoves {
+		if v.Eq(m) {
+			valid = true
+			break
+		}
+	}
+	if !valid {
 		return fmt.Errorf("chess: invalid move %s", m)
 	}
-	g.moves = append(g.moves, valid)
-	g.pos = g.pos.Update(valid)
+	v := m.copy()
+	g.moves = append(g.moves, v)
+	g.pos = g.pos.Update(v)
 	g.positions = append(g.positions, g.pos)
 	g.updatePosition()
 	return nil
