@@ -51,8 +51,8 @@ func TestValidDecoding(t *testing.T) {
 			}
 			postPos := test.Pos1.Update(m)
 			if test.Pos2.String() != postPos.String() {
-				t.Fatalf("starting from board \n%s\n after move %s\n expected board to be %s\n%s\n but was %s\n%s\n",
-					test.Pos1.board.Draw(), m.String(), test.Pos2.String(),
+				t.Fatalf("starting from board \n%s\n after move %s\n (%s, %d) expected board to be %s\n%s\n but was %s\n%s\n",
+					test.Pos1.board.Draw(), m.String(), moveText, i, test.Pos2.String(),
 					test.Pos2.board.Draw(), postPos.String(), postPos.board.Draw())
 			}
 		}

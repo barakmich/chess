@@ -24,14 +24,14 @@ type Move struct {
 	piece Piece
 	s1    Square
 	s2    Square
-	promo PieceType
+	promo PromoType
 	tags  MoveTag
 }
 
 // String returns a string useful for debugging.  String doesn't return
 // algebraic notation.
 func (m *Move) String() string {
-	return m.s1.String() + m.s2.String() + m.promo.String()
+	return m.s1.String() + m.s2.String() + m.promo.PieceType().String()
 }
 
 // S1 returns the origin square of the move.
@@ -46,7 +46,7 @@ func (m *Move) S2() Square {
 
 // Promo returns promotion piece type of the move.
 func (m *Move) Promo() PieceType {
-	return m.promo
+	return m.promo.PieceType()
 }
 
 // HasTag returns true if the move contains the MoveTag given.

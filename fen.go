@@ -74,9 +74,9 @@ func fenFormRank(rankStr string) (map[File]Piece, error) {
 	m := map[File]Piece{}
 	err := fmt.Errorf("chess: fen invalid rank %s", rankStr)
 	for _, r := range rankStr {
-		c := fmt.Sprintf("%c", r)
-		piece := fenPieceMap[c]
-		if piece == NoPiece {
+		c := string(r)
+		piece, ok := fenPieceMap[c]
+		if !ok {
 			skip, err := strconv.Atoi(c)
 			if err != nil {
 				return nil, err

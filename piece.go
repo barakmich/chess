@@ -1,26 +1,30 @@
 package chess
 
+// NOTE(barakmich):
+// Piece, PieceType and Color constant values are carefully chosen
+// to allow for bit operations between them.
+//
+// A Piece has the upper 4 bits as Color and the
+// lower 4 bits as PieceType
+
 // Color represents the color of a chess piece.
-type Color int8
+type Color uint8
 
 const (
-	// NoColor represents no color
-	NoColor Color = iota
 	// White represents the color white
-	White
+	White Color = 0
 	// Black represents the color black
-	Black
+	Black Color = 1
+	// NoColor represents no color
+	NoColor Color = 15
 )
 
 // Other returns the opposite color of the receiver.
 func (c Color) Other() Color {
-	switch c {
-	case White:
+	if c == White {
 		return Black
-	case Black:
-		return White
 	}
-	return NoColor
+	return White
 }
 
 // String implements the fmt.Stringer interface and returns
@@ -47,28 +51,66 @@ func (c Color) Name() string {
 }
 
 // PieceType is the type of a piece.
-type PieceType int8
+type PieceType uint8
 
 const (
-	// NoPieceType represents a lack of piece type
-	NoPieceType PieceType = iota
 	// King represents a king
-	King
+	King PieceType = 0
 	// Queen represents a queen
-	Queen
+	Queen PieceType = 1
 	// Rook represents a rook
-	Rook
+	Rook PieceType = 2
 	// Bishop represents a bishop
-	Bishop
+	Bishop PieceType = 3
 	// Knight represents a knight
-	Knight
+	Knight PieceType = 4
 	// Pawn represents a pawn
-	Pawn
+	Pawn PieceType = 5
+	// NoPieceType represents a lack of piece type
+	NoPieceType PieceType = 15
 )
+
+// PromoType is a promotion choice
+type PromoType uint8
+
+const (
+	NoPromo PromoType = iota
+	// Queen represents a queen
+	PromoQueen
+	// Rook represents a rook
+	PromoRook
+	// Bishop represents a bishop
+	PromoBishop
+	// Knight represents a knight
+	PromoKnight
+)
+
+func (promo PromoType) PieceType() PieceType {
+	if promo == NoPromo {
+		return NoPieceType
+	}
+	return PieceType(promo)
+}
+
+func promoFromPieceType(p PieceType) PromoType {
+	switch p {
+	case Queen:
+		return PromoQueen
+	case Rook:
+		return PromoRook
+	case Knight:
+		return PromoKnight
+	case Bishop:
+		return PromoBishop
+	}
+	return NoPromo
+}
+
+var allPieceTypes = [6]PieceType{King, Queen, Rook, Bishop, Knight, Pawn}
 
 // PieceTypes returns a slice of all piece types.
 func PieceTypes() [6]PieceType {
-	return [6]PieceType{King, Queen, Rook, Bishop, Knight, Pawn}
+	return allPieceTypes
 }
 
 func (p PieceType) String() string {
@@ -90,35 +132,35 @@ func (p PieceType) String() string {
 }
 
 // Piece is a piece type with a color.
-type Piece int8
+type Piece uint8
 
 const (
-	// NoPiece represents no piece
-	NoPiece Piece = iota
 	// WhiteKing is a white king
-	WhiteKing
+	WhiteKing Piece = 0
 	// WhiteQueen is a white queen
-	WhiteQueen
+	WhiteQueen Piece = 1
 	// WhiteRook is a white rook
-	WhiteRook
+	WhiteRook Piece = 2
 	// WhiteBishop is a white bishop
-	WhiteBishop
+	WhiteBishop Piece = 3
 	// WhiteKnight is a white knight
-	WhiteKnight
+	WhiteKnight Piece = 4
 	// WhitePawn is a white pawn
-	WhitePawn
+	WhitePawn Piece = 5
 	// BlackKing is a black king
-	BlackKing
+	BlackKing Piece = 16
 	// BlackQueen is a black queen
-	BlackQueen
+	BlackQueen Piece = 17
 	// BlackRook is a black rook
-	BlackRook
+	BlackRook Piece = 18
 	// BlackBishop is a black bishop
-	BlackBishop
+	BlackBishop Piece = 19
 	// BlackKnight is a black knight
-	BlackKnight
+	BlackKnight Piece = 20
 	// BlackPawn is a black pawn
-	BlackPawn
+	BlackPawn Piece = 21
+	// NoPiece represents no piece
+	NoPiece Piece = 255
 )
 
 var (
@@ -129,58 +171,45 @@ var (
 )
 
 func GetPiece(t PieceType, c Color) Piece {
-	for _, p := range allPieces {
-		if p.Color() == c && p.Type() == t {
-			return p
-		}
-	}
-	return NoPiece
+	return Piece(uint8(c)<<4 | uint8(t))
 }
 
 // Type returns the type of the piece.
 func (p Piece) Type() PieceType {
-	switch p {
-	case WhiteKing, BlackKing:
-		return King
-	case WhiteQueen, BlackQueen:
-		return Queen
-	case WhiteRook, BlackRook:
-		return Rook
-	case WhiteBishop, BlackBishop:
-		return Bishop
-	case WhiteKnight, BlackKnight:
-		return Knight
-	case WhitePawn, BlackPawn:
-		return Pawn
-	}
-	return NoPieceType
+	return PieceType(p & 0xF)
 }
 
 // Color returns the color of the piece.
 func (p Piece) Color() Color {
-	switch p {
-	case WhiteKing, WhiteQueen, WhiteRook, WhiteBishop, WhiteKnight, WhitePawn:
-		return White
-	case BlackKing, BlackQueen, BlackRook, BlackBishop, BlackKnight, BlackPawn:
-		return Black
-	}
-	return NoColor
+	return Color(p >> 4)
 }
 
 // String implements the fmt.Stringer interface
 func (p Piece) String() string {
-	return pieceUnicodes[int(p)]
+	v, ok := pieceUnicodes[p]
+	if !ok {
+		return " "
+	}
+	return v
 }
 
 var (
-	pieceUnicodes = []string{" ", "♔", "♕", "♖", "♗", "♘", "♙", "♚", "♛", "♜", "♝", "♞", "♟"}
+	pieceUnicodes = map[Piece]string{
+		WhiteKing:   "♔",
+		WhiteQueen:  "♕",
+		WhiteRook:   "♖",
+		WhiteBishop: "♗",
+		WhiteKnight: "♘",
+		WhitePawn:   "♙",
+		BlackKing:   "♚",
+		BlackQueen:  "♛",
+		BlackRook:   "♜",
+		BlackBishop: "♝",
+		BlackKnight: "♞",
+		BlackPawn:   "♟",
+	}
 )
 
 func (p Piece) getFENChar() string {
-	for key, piece := range fenPieceMap {
-		if piece == p {
-			return key
-		}
-	}
-	return ""
+	return string(fenReverseMap[p])
 }

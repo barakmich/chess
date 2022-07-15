@@ -4,36 +4,26 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math/bits"
 	"strconv"
 	"strings"
 )
 
+const darkSquares uint64 = 0xAA55AA55AA55AA55
+const lightSquares uint64 = 0x55AA55AA55AA55AA
+
 // A Board represents a chess board and its relationship between squares and pieces.
 type Board struct {
-	bbWhiteKing   bitboard
-	bbWhiteQueen  bitboard
-	bbWhiteRook   bitboard
-	bbWhiteBishop bitboard
-	bbWhiteKnight bitboard
-	bbWhitePawn   bitboard
-	bbBlackKing   bitboard
-	bbBlackQueen  bitboard
-	bbBlackRook   bitboard
-	bbBlackBishop bitboard
-	bbBlackKnight bitboard
-	bbBlackPawn   bitboard
-	whiteSqs      bitboard
-	blackSqs      bitboard
-	emptySqs      bitboard
-	whiteKingSq   Square
-	blackKingSq   Square
+	array       [22]bitboard
+	whiteKingSq Square
+	blackKingSq Square
 }
 
 // NewBoard returns a board from a square to piece mapping.
 func NewBoard(m map[Square]Piece) *Board {
 	b := &Board{}
 	for _, p1 := range allPieces {
-		bm := map[Square]bool{}
+		bm := make(map[Square]bool)
 		for sq, p2 := range m {
 			if p1 == p2 {
 				bm[sq] = true
@@ -42,7 +32,7 @@ func NewBoard(m map[Square]Piece) *Board {
 		bb := newBitboard(bm)
 		b.setBBForPiece(p1, bb)
 	}
-	b.calcConvienceBBs(nil)
+	b.updateKings(nil)
 	return b
 }
 
@@ -159,6 +149,11 @@ func (b *Board) String() string {
 	return fen
 }
 
+// FEN returns the FEN representation of the board.
+func (b *Board) FEN() string {
+	return b.String()
+}
+
 // Piece returns the piece for the given square.
 func (b *Board) Piece(sq Square) Piece {
 	if !b.isOccupied(sq) {
@@ -195,10 +190,12 @@ func (b *Board) UnmarshalText(text []byte) error {
 // in the following order: WhiteKing, WhiteQueen, WhiteRook, WhiteBishop, WhiteKnight
 // WhitePawn, BlackKing, BlackQueen, BlackRook, BlackBishop, BlackKnight, BlackPawn
 func (b *Board) MarshalBinary() (data []byte, err error) {
-	bbs := []bitboard{b.bbWhiteKing, b.bbWhiteQueen, b.bbWhiteRook, b.bbWhiteBishop, b.bbWhiteKnight, b.bbWhitePawn,
-		b.bbBlackKing, b.bbBlackQueen, b.bbBlackRook, b.bbBlackBishop, b.bbBlackKnight, b.bbBlackPawn}
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, bbs)
+	err = binary.Write(buf, binary.BigEndian, b.array[:6])
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, b.array[16:])
 	return buf.Bytes(), err
 }
 
@@ -210,19 +207,13 @@ func (b *Board) UnmarshalBinary(data []byte) error {
 	if len(data) != 96 {
 		return errors.New("chess: invalid number of bytes for board unmarshal binary")
 	}
-	b.bbWhiteKing = bitboard(binary.BigEndian.Uint64(data[:8]))
-	b.bbWhiteQueen = bitboard(binary.BigEndian.Uint64(data[8:16]))
-	b.bbWhiteRook = bitboard(binary.BigEndian.Uint64(data[16:24]))
-	b.bbWhiteBishop = bitboard(binary.BigEndian.Uint64(data[24:32]))
-	b.bbWhiteKnight = bitboard(binary.BigEndian.Uint64(data[32:40]))
-	b.bbWhitePawn = bitboard(binary.BigEndian.Uint64(data[40:48]))
-	b.bbBlackKing = bitboard(binary.BigEndian.Uint64(data[48:56]))
-	b.bbBlackQueen = bitboard(binary.BigEndian.Uint64(data[56:64]))
-	b.bbBlackRook = bitboard(binary.BigEndian.Uint64(data[64:72]))
-	b.bbBlackBishop = bitboard(binary.BigEndian.Uint64(data[72:80]))
-	b.bbBlackKnight = bitboard(binary.BigEndian.Uint64(data[80:88]))
-	b.bbBlackPawn = bitboard(binary.BigEndian.Uint64(data[88:96]))
-	b.calcConvienceBBs(nil)
+	for i := 0; i < 48; i += 8 {
+		b.array[i>>3] = bitboard(binary.BigEndian.Uint64(data[i : i+8]))
+	}
+	for i := 0; i < 48; i += 8 {
+		b.array[(i>>3)+16] = bitboard(binary.BigEndian.Uint64(data[i+48 : i+48+8]))
+	}
+	b.updateKings(nil)
 	return nil
 }
 
@@ -239,15 +230,14 @@ func (b *Board) update(m *Move) {
 		bb := b.bbForPiece(p)
 		// remove what was at s2
 		b.setBBForPiece(p, bb & ^s2BB)
-		// move what was at s1 to s2
-		if bb.Occupied(m.s1) {
-			bb = b.bbForPiece(p)
-			b.setBBForPiece(p, (bb & ^s1BB)|s2BB)
-		}
 	}
+
+	bb := b.bbForPiece(p1)
+	b.setBBForPiece(p1, (bb & ^s1BB)|s2BB)
+
 	// check promotion
-	if m.promo != NoPieceType {
-		newPiece := GetPiece(m.promo, p1.Color())
+	if m.promo != NoPromo {
+		newPiece := GetPiece(m.promo.PieceType(), p1.Color())
 		// remove pawn
 		bbPawn := b.bbForPiece(p1)
 		b.setBBForPiece(p1, bbPawn & ^s2BB)
@@ -258,40 +248,34 @@ func (b *Board) update(m *Move) {
 	// remove captured en passant piece
 	if m.HasTag(EnPassant) {
 		if p1.Color() == White {
-			b.bbBlackPawn = ^(bbForSquare(m.s2) << 8) & b.bbBlackPawn
+			b.array[BlackPawn] = ^(bbForSquare(m.s2) >> 8) & b.array[BlackPawn]
 		} else {
-			b.bbWhitePawn = ^(bbForSquare(m.s2) >> 8) & b.bbWhitePawn
+			b.array[WhitePawn] = ^(bbForSquare(m.s2) << 8) & b.array[WhitePawn]
 		}
 	}
 	// move rook for castle
 	if p1.Color() == White && m.HasTag(KingSideCastle) {
-		b.bbWhiteRook = (b.bbWhiteRook & ^bbForSquare(H1) | bbForSquare(F1))
+		b.array[WhiteRook] = (b.array[WhiteRook] & ^bbForSquare(H1) | bbForSquare(F1))
 	} else if p1.Color() == White && m.HasTag(QueenSideCastle) {
-		b.bbWhiteRook = (b.bbWhiteRook & ^bbForSquare(A1)) | bbForSquare(D1)
+		b.array[WhiteRook] = (b.array[WhiteRook] & ^bbForSquare(A1)) | bbForSquare(D1)
 	} else if p1.Color() == Black && m.HasTag(KingSideCastle) {
-		b.bbBlackRook = (b.bbBlackRook & ^bbForSquare(H8) | bbForSquare(F8))
+		b.array[BlackRook] = (b.array[BlackRook] & ^bbForSquare(H8) | bbForSquare(F8))
 	} else if p1.Color() == Black && m.HasTag(QueenSideCastle) {
-		b.bbBlackRook = (b.bbBlackRook & ^bbForSquare(A8)) | bbForSquare(D8)
+		b.array[BlackRook] = (b.array[BlackRook] & ^bbForSquare(A8)) | bbForSquare(D8)
 	}
-	b.calcConvienceBBs(m)
+	b.updateKings(m)
 }
 
-func (b *Board) calcConvienceBBs(m *Move) {
-	whiteSqs := b.bbWhiteKing | b.bbWhiteQueen | b.bbWhiteRook | b.bbWhiteBishop | b.bbWhiteKnight | b.bbWhitePawn
-	blackSqs := b.bbBlackKing | b.bbBlackQueen | b.bbBlackRook | b.bbBlackBishop | b.bbBlackKnight | b.bbBlackPawn
-	emptySqs := ^(whiteSqs | blackSqs)
-	b.whiteSqs = whiteSqs
-	b.blackSqs = blackSqs
-	b.emptySqs = emptySqs
+func (b *Board) updateKings(m *Move) {
 	if m == nil {
 		b.whiteKingSq = NoSquare
 		b.blackKingSq = NoSquare
 
 		for sq := 0; sq < numOfSquaresInBoard; sq++ {
 			sqr := Square(sq)
-			if b.bbWhiteKing.Occupied(sqr) {
+			if b.array[WhiteKing].Occupied(sqr) {
 				b.whiteKingSq = sqr
-			} else if b.bbBlackKing.Occupied(sqr) {
+			} else if b.array[BlackKing].Occupied(sqr) {
 				b.blackKingSq = sqr
 			}
 		}
@@ -301,48 +285,65 @@ func (b *Board) calcConvienceBBs(m *Move) {
 		b.blackKingSq = m.s2
 	}
 }
-
 func (b *Board) copy() *Board {
+	boards := [22]bitboard{}
+	for i := 0; i < 22; i++ {
+		boards[i] = b.array[i]
+	}
 	return &Board{
-		whiteSqs:      b.whiteSqs,
-		blackSqs:      b.blackSqs,
-		emptySqs:      b.emptySqs,
-		whiteKingSq:   b.whiteKingSq,
-		blackKingSq:   b.blackKingSq,
-		bbWhiteKing:   b.bbWhiteKing,
-		bbWhiteQueen:  b.bbWhiteQueen,
-		bbWhiteRook:   b.bbWhiteRook,
-		bbWhiteBishop: b.bbWhiteBishop,
-		bbWhiteKnight: b.bbWhiteKnight,
-		bbWhitePawn:   b.bbWhitePawn,
-		bbBlackKing:   b.bbBlackKing,
-		bbBlackQueen:  b.bbBlackQueen,
-		bbBlackRook:   b.bbBlackRook,
-		bbBlackBishop: b.bbBlackBishop,
-		bbBlackKnight: b.bbBlackKnight,
-		bbBlackPawn:   b.bbBlackPawn,
+		whiteKingSq: b.whiteKingSq,
+		blackKingSq: b.blackKingSq,
+		array:       boards,
 	}
 }
 
+func (b *Board) whiteSqs() bitboard {
+	var total uint64
+	for i := WhiteKing; i <= WhitePawn; i++ {
+		total = total | uint64(b.array[i])
+	}
+	return bitboard(total)
+}
+
+func (b *Board) blackSqs() bitboard {
+	var total uint64
+	for i := BlackKing; i <= BlackPawn; i++ {
+		total = total | uint64(b.array[i])
+	}
+	return bitboard(total)
+}
+
+func (b *Board) occupied() bitboard {
+	var total uint64
+	for i := 0; i < 22; i++ {
+		total = total | uint64(b.array[i])
+	}
+	return bitboard(total)
+}
+
 func (b *Board) isOccupied(sq Square) bool {
-	return !b.emptySqs.Occupied(sq)
+	mask := uint64(0b1 << int(sq))
+	total := uint64(b.occupied())
+	return (total & mask) != 0
 }
 
 func (b *Board) hasSufficientMaterial() bool {
 	// queen, rook, or pawn exist
-	if (b.bbWhiteQueen | b.bbWhiteRook | b.bbWhitePawn |
-		b.bbBlackQueen | b.bbBlackRook | b.bbBlackPawn) > 0 {
+	if (b.array[WhiteQueen] | b.array[WhiteRook] | b.array[WhitePawn] |
+		b.array[BlackQueen] | b.array[BlackRook] | b.array[BlackPawn]) != 0 {
 		return true
 	}
 	// if king is missing then it is a test
-	if b.bbWhiteKing == 0 || b.bbBlackKing == 0 {
+	if b.array[WhiteKing] == 0 || b.array[BlackKing] == 0 {
 		return true
 	}
 	count := map[PieceType]int{}
-	pieceMap := b.SquareMap()
-	for _, p := range pieceMap {
-		count[p.Type()]++
+
+	for i := 0; i < 6; i++ {
+		count[PieceType(i)] += bits.OnesCount64(uint64(b.array[i]))
+		count[PieceType(i)] += bits.OnesCount64(uint64(b.array[i+16]))
 	}
+
 	// 	king versus king
 	if count[Bishop] == 0 && count[Knight] == 0 {
 		return false
@@ -357,19 +358,10 @@ func (b *Board) hasSufficientMaterial() bool {
 	}
 	// king and bishop(s) versus king and bishop(s) with the bishops on the same colour.
 	if count[Knight] == 0 {
-		whiteCount := 0
-		blackCount := 0
-		for sq, p := range pieceMap {
-			if p.Type() == Bishop {
-				switch sq.color() {
-				case White:
-					whiteCount++
-				case Black:
-					blackCount++
-				}
-			}
-		}
-		if whiteCount == 0 || blackCount == 0 {
+		bishops := uint64(b.array[WhiteBishop] | b.array[BlackBishop])
+		lightCount := bits.OnesCount64(bishops & lightSquares)
+		darkCount := bits.OnesCount64(bishops & darkSquares)
+		if lightCount == 0 || darkCount == 0 {
 			return false
 		}
 	}
@@ -377,62 +369,9 @@ func (b *Board) hasSufficientMaterial() bool {
 }
 
 func (b *Board) bbForPiece(p Piece) bitboard {
-	switch p {
-	case WhiteKing:
-		return b.bbWhiteKing
-	case WhiteQueen:
-		return b.bbWhiteQueen
-	case WhiteRook:
-		return b.bbWhiteRook
-	case WhiteBishop:
-		return b.bbWhiteBishop
-	case WhiteKnight:
-		return b.bbWhiteKnight
-	case WhitePawn:
-		return b.bbWhitePawn
-	case BlackKing:
-		return b.bbBlackKing
-	case BlackQueen:
-		return b.bbBlackQueen
-	case BlackRook:
-		return b.bbBlackRook
-	case BlackBishop:
-		return b.bbBlackBishop
-	case BlackKnight:
-		return b.bbBlackKnight
-	case BlackPawn:
-		return b.bbBlackPawn
-	}
-	return bitboard(0)
+	return b.array[p]
 }
 
 func (b *Board) setBBForPiece(p Piece, bb bitboard) {
-	switch p {
-	case WhiteKing:
-		b.bbWhiteKing = bb
-	case WhiteQueen:
-		b.bbWhiteQueen = bb
-	case WhiteRook:
-		b.bbWhiteRook = bb
-	case WhiteBishop:
-		b.bbWhiteBishop = bb
-	case WhiteKnight:
-		b.bbWhiteKnight = bb
-	case WhitePawn:
-		b.bbWhitePawn = bb
-	case BlackKing:
-		b.bbBlackKing = bb
-	case BlackQueen:
-		b.bbBlackQueen = bb
-	case BlackRook:
-		b.bbBlackRook = bb
-	case BlackBishop:
-		b.bbBlackBishop = bb
-	case BlackKnight:
-		b.bbBlackKnight = bb
-	case BlackPawn:
-		b.bbBlackPawn = bb
-	default:
-		panic("invalid piece")
-	}
+	b.array[p] = bb
 }

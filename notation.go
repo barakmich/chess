@@ -76,7 +76,7 @@ func (pos *Position) DecodeUCI(s string) (*Move, error) {
 			return nil, err
 		}
 	}
-	m := &Move{s1: s1, s2: s2, promo: promo}
+	m := &Move{s1: s1, s2: s2, promo: promoFromPieceType(promo)}
 	if pos == nil {
 		return m, nil
 	}
@@ -308,12 +308,18 @@ func formS1(pos *Position, m *Move, moves []*Move) string {
 	return s1
 }
 
-func charForPromo(p PieceType) string {
-	c := charFromPieceType(p)
-	if c != "" {
-		c = "=" + c
+func charForPromo(p PromoType) string {
+	switch p {
+	case PromoBishop:
+		return "=B"
+	case PromoKnight:
+		return "=N"
+	case PromoQueen:
+		return "=Q"
+	case PromoRook:
+		return "=R"
 	}
-	return c
+	return ""
 }
 
 func charFromPieceType(p PieceType) string {

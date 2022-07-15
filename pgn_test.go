@@ -57,7 +57,7 @@ func TestValidPGNs(t *testing.T) {
 	for _, test := range validPGNs {
 		game, err := decodePGN(test.PGN)
 		if err != nil {
-			t.Fatalf("recieved unexpected pgn error %s", err.Error())
+			t.Fatalf("recieved unexpected pgn error %s\n%s", err.Error(), test.PGN)
 		}
 		if game.Position().String() != test.PostPos.String() {
 			t.Fatalf("expected board to be \n%s\nFEN:%s\n but got \n%s\n\nFEN:%s\n",
