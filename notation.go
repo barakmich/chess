@@ -154,9 +154,9 @@ type moveAndStr struct {
 func (pos *Position) DecodeSAN(s string) (*Move, error) {
 	var validMoveStrings []moveAndStr
 
-	validMoves := pos.ValidMoves()
-	for _, m := range validMoves {
-		moveStr := pos.encodeSANInternal(m, validMoves)
+	pos.ensureValidMoves()
+	for _, m := range pos.validMoves {
+		moveStr := pos.encodeSANInternal(m, pos.validMoves)
 		validMoveStrings = append(validMoveStrings, moveAndStr{str: moveStr, move: m})
 	}
 

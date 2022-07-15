@@ -162,7 +162,7 @@ func TestValidMoves(t *testing.T) {
 			log.Println(mt.pos.String())
 			log.Println(mt.pos.board.Draw())
 			log.Println(mt.pos.ValidMoves())
-			log.Println("In Check:", squaresAreAttacked(mt.pos, mt.pos.board.whiteKingSq))
+			log.Println("In Check:", squaresAreAttacked(mt.pos.board, mt.pos.turn, mt.pos.board.whiteKingSq))
 			// log.Println("In Check:", mt.pos.inCheck())
 			mt.pos.turn = mt.pos.turn.Other()
 			t.Fatalf("expected move %s to be valid", mt.m)

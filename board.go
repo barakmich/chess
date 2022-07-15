@@ -285,16 +285,13 @@ func (b *Board) updateKings(m *Move) {
 		b.blackKingSq = m.s2
 	}
 }
-func (b *Board) copy() *Board {
-	boards := [22]bitboard{}
+
+func (b *Board) copyInto(other *Board) {
 	for i := 0; i < 22; i++ {
-		boards[i] = b.array[i]
+		other.array[i] = b.array[i]
 	}
-	return &Board{
-		whiteKingSq: b.whiteKingSq,
-		blackKingSq: b.blackKingSq,
-		array:       boards,
-	}
+	other.whiteKingSq = b.whiteKingSq
+	other.blackKingSq = b.blackKingSq
 }
 
 func (b *Board) whiteSqs() bitboard {
@@ -374,4 +371,13 @@ func (b *Board) bbForPiece(p Piece) bitboard {
 
 func (b *Board) setBBForPiece(p Piece, bb bitboard) {
 	b.array[p] = bb
+}
+
+func (b *Board) pieceAt(mask uint64) Piece {
+	for i, bb := range b.array {
+		if uint64(bb)&mask != 0 {
+			return Piece(i)
+		}
+	}
+	return NoPiece
 }

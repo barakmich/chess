@@ -93,84 +93,84 @@ func addTags(m *Move, pos *Position) {
 		m.addTag(EnPassant)
 	}
 	// determine if in check after move (makes move invalid)
-	cp := pos.copy()
-	cp.board.update(m)
-	if isInCheck(cp) {
+	tmpBoard := pos.tempCopyBoard()
+	tmpBoard.update(m)
+	if isInCheck(tmpBoard, pos.turn) {
 		m.addTag(inCheck)
 	}
 	// determine if opponent in check after move
-	cp.turn = cp.turn.Other()
-	if isInCheck(cp) {
+	if isInCheck(tmpBoard, pos.turn.Other()) {
 		m.addTag(Check)
 	}
+	pos.finishTempCopy(tmpBoard)
 }
 
-func isInCheck(pos *Position) bool {
-	kingSq := pos.board.whiteKingSq
-	if pos.Turn() == Black {
-		kingSq = pos.board.blackKingSq
+func isInCheck(board *Board, turn Color) bool {
+	kingSq := board.whiteKingSq
+	if turn == Black {
+		kingSq = board.blackKingSq
 	}
 	// king should only be missing in tests / examples
 	if kingSq == NoSquare {
 		return false
 	}
-	return squaresAreAttacked(pos, kingSq)
+	return squaresAreAttacked(board, turn, kingSq)
 }
 
-func squaresAreAttacked(pos *Position, sqs ...Square) bool {
-	otherColor := pos.Turn().Other()
-	occ := pos.board.occupied()
+func squaresAreAttacked(board *Board, turn Color, sqs ...Square) bool {
+	otherColor := turn.Other()
+	occ := board.occupied()
 	for _, sq := range sqs {
 		// hot path check to see if attack vector is possible
-		s2BB := pos.board.blackSqs()
-		if pos.Turn() == Black {
-			s2BB = pos.board.whiteSqs()
+		s2BB := board.blackSqs()
+		if turn == Black {
+			s2BB = board.whiteSqs()
 		}
 		if ((diaAttack(occ, sq)|hvAttack(occ, sq))&s2BB)|(bbKnightMoves[sq]&s2BB) == 0 {
 			continue
 		}
 		// check queen attack vector
-		queenBB := pos.board.bbForPiece(GetPiece(Queen, otherColor))
+		queenBB := board.bbForPiece(GetPiece(Queen, otherColor))
 		bb := (diaAttack(occ, sq) | hvAttack(occ, sq)) & queenBB
 		if bb != 0 {
 			return true
 		}
 		// check rook attack vector
-		rookBB := pos.board.bbForPiece(GetPiece(Rook, otherColor))
+		rookBB := board.bbForPiece(GetPiece(Rook, otherColor))
 		bb = hvAttack(occ, sq) & rookBB
 		if bb != 0 {
 			return true
 		}
 		// check bishop attack vector
-		bishopBB := pos.board.bbForPiece(GetPiece(Bishop, otherColor))
+		bishopBB := board.bbForPiece(GetPiece(Bishop, otherColor))
 		bb = diaAttack(occ, sq) & bishopBB
 		if bb != 0 {
 			return true
 		}
 		// check knight attack vector
-		knightBB := pos.board.bbForPiece(GetPiece(Knight, otherColor))
+		knightBB := board.bbForPiece(GetPiece(Knight, otherColor))
 		bb = bbKnightMoves[sq] & knightBB
 		if bb != 0 {
 			return true
 		}
 		// check pawn attack vector
-		if pos.Turn() == White {
-			capLeft := (pos.board.array[BlackPawn] & ^bbFileH & ^bbRank1) >> 7
-			capRight := (pos.board.array[BlackPawn] & ^bbFileA & ^bbRank1) >> 9
+		if turn == White {
+			capLeft := (board.array[BlackPawn] & ^bbFileH & ^bbRank1) >> 7
+			capRight := (board.array[BlackPawn] & ^bbFileA & ^bbRank1) >> 9
 			bb = (capRight | capLeft) & bbForSquare(sq)
 			if bb != 0 {
 				return true
 			}
 		} else {
-			capLeft := (pos.board.array[WhitePawn] & ^bbFileH & ^bbRank8) << 9
-			capRight := (pos.board.array[WhitePawn] & ^bbFileA & ^bbRank8) << 7
+			capLeft := (board.array[WhitePawn] & ^bbFileH & ^bbRank8) << 9
+			capRight := (board.array[WhitePawn] & ^bbFileA & ^bbRank8) << 7
 			bb = (capRight | capLeft) & bbForSquare(sq)
 			if bb != 0 {
 				return true
 			}
 		}
 		// check king attack vector
-		kingBB := pos.board.bbForPiece(GetPiece(King, otherColor))
+		kingBB := board.bbForPiece(GetPiece(King, otherColor))
 		bb = bbKingMoves[sq] & kingBB
 		if bb != 0 {
 			return true
@@ -207,7 +207,7 @@ func castleMoves(pos *Position) []*Move {
 	// white king side
 	if pos.turn == White && kingSide &&
 		(occupied&(bbForSquare(F1)|bbForSquare(G1))) == 0 &&
-		!squaresAreAttacked(pos, F1, G1) &&
+		!squaresAreAttacked(pos.board, pos.turn, F1, G1) &&
 		!pos.inCheck {
 		m := &Move{piece: WhiteKing, s1: E1, s2: G1}
 		m.addTag(KingSideCastle)
@@ -217,7 +217,7 @@ func castleMoves(pos *Position) []*Move {
 	// white queen side
 	if pos.turn == White && queenSide &&
 		(occupied&(bbForSquare(B1)|bbForSquare(C1)|bbForSquare(D1))) == 0 &&
-		!squaresAreAttacked(pos, C1, D1) &&
+		!squaresAreAttacked(pos.board, pos.turn, C1, D1) &&
 		!pos.inCheck {
 		m := &Move{piece: WhiteKing, s1: E1, s2: C1}
 		m.addTag(QueenSideCastle)
@@ -227,7 +227,7 @@ func castleMoves(pos *Position) []*Move {
 	// black king side
 	if pos.turn == Black && kingSide &&
 		(occupied&(bbForSquare(F8)|bbForSquare(G8))) == 0 &&
-		!squaresAreAttacked(pos, F8, G8) &&
+		!squaresAreAttacked(pos.board, pos.turn, F8, G8) &&
 		!pos.inCheck {
 		m := &Move{piece: BlackKing, s1: E8, s2: G8}
 		m.addTag(KingSideCastle)
@@ -237,7 +237,7 @@ func castleMoves(pos *Position) []*Move {
 	// black queen side
 	if pos.turn == Black && queenSide &&
 		(occupied&(bbForSquare(B8)|bbForSquare(C8)|bbForSquare(D8))) == 0 &&
-		!squaresAreAttacked(pos, C8, D8) &&
+		!squaresAreAttacked(pos.board, pos.turn, C8, D8) &&
 		!pos.inCheck {
 		m := &Move{piece: BlackKing, s1: E8, s2: C8}
 		m.addTag(QueenSideCastle)

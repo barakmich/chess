@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // Side represents a side of the board.
@@ -86,10 +87,11 @@ func (pos *Position) Update(m *Move) *Position {
 	} else {
 		halfMove++
 	}
-	b := pos.board.copy()
-	b.update(m)
+	newBoard := &Board{}
+	pos.board.copyInto(newBoard)
+	newBoard.update(m)
 	return &Position{
-		board:           b,
+		board:           newBoard,
 		turn:            pos.turn.Other(),
 		castleRights:    ncr,
 		enPassantSquare: pos.updateEnPassantSquare(m),
@@ -101,11 +103,14 @@ func (pos *Position) Update(m *Move) *Position {
 
 // ValidMoves returns a list of valid moves for the position.
 func (pos *Position) ValidMoves() []*Move {
-	if pos.validMoves != nil {
-		return append([]*Move(nil), pos.validMoves...)
-	}
-	pos.validMoves = engine{}.CalcMoves(pos, false)
+	pos.ensureValidMoves()
 	return append([]*Move(nil), pos.validMoves...)
+}
+
+func (pos *Position) ensureValidMoves() {
+	if pos.validMoves == nil {
+		pos.validMoves = engine{}.CalcMoves(pos, false)
+	}
 }
 
 // Status returns the position's status as one of the outcome methods.
@@ -167,7 +172,7 @@ func (pos *Position) UnmarshalText(text []byte) error {
 	pos.enPassantSquare = cp.enPassantSquare
 	pos.halfMoveClock = cp.halfMoveClock
 	pos.moveCount = cp.moveCount
-	pos.inCheck = isInCheck(cp)
+	pos.inCheck = isInCheck(cp.board, cp.turn)
 	return nil
 }
 
@@ -272,13 +277,15 @@ func (pos *Position) UnmarshalBinary(data []byte) error {
 	if b&bitsHasEnPassant == 0 {
 		pos.enPassantSquare = NoSquare
 	}
-	pos.inCheck = isInCheck(pos)
+	pos.inCheck = isInCheck(pos.board, pos.turn)
 	return nil
 }
 
 func (pos *Position) copy() *Position {
+	newBoard := &Board{}
+	pos.board.copyInto(newBoard)
 	return &Position{
-		board:           pos.board.copy(),
+		board:           newBoard,
 		turn:            pos.turn,
 		castleRights:    pos.castleRights,
 		enPassantSquare: pos.enPassantSquare,
@@ -286,6 +293,22 @@ func (pos *Position) copy() *Position {
 		moveCount:       pos.moveCount,
 		inCheck:         pos.inCheck,
 	}
+}
+
+var tmpBoardPool = sync.Pool{
+	New: func() any {
+		return &Board{}
+	},
+}
+
+func (pos *Position) tempCopyBoard() *Board {
+	board := tmpBoardPool.Get().(*Board)
+	pos.board.copyInto(board)
+	return board
+}
+
+func (pos *Position) finishTempCopy(b *Board) {
+	tmpBoardPool.Put(b)
 }
 
 func (pos *Position) updateCastleRights(m *Move) CastleRights {

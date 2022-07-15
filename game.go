@@ -101,7 +101,7 @@ func NewGameFromFEN(fen string) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	pos.inCheck = isInCheck(pos)
+	pos.inCheck = isInCheck(pos.board, pos.turn)
 	g.pos = pos
 	g.positions = []*Position{pos}
 	g.updatePosition()
