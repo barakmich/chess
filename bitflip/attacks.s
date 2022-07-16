@@ -12,15 +12,15 @@ DATA bytes<>+48(SB)/8, $0x0001020304050607
 DATA bytes<>+56(SB)/8, $0x08090a0b0c0d0e0f
 GLOBL bytes<>(SB), RODATA|NOPTR, $64
 
-// func CalcAttacks(occupied uint64, location uint64, angles [4]uint64) (uint64, uint64)
+// func queenAttacks(occupied uint64, location uint64, rank uint64, file uint64, diag uint64, antidiag uint64) uint64
 // Requires: AVX, SSE2, SSE3, SSE4.1
-TEXT ·CalcAttacks(SB), NOSPLIT, $0-64
+TEXT ·queenAttacks(SB), NOSPLIT, $0-56
 	MOVQ occupied+0(FP), AX
 	MOVQ location+8(FP), CX
-	MOVQ angles_0+16(FP), DX
-	MOVQ angles_1+24(FP), BX
-	MOVQ angles_2+32(FP), SI
-	MOVQ angles_3+40(FP), DI
+	MOVQ rank+16(FP), DX
+	MOVQ file+24(FP), BX
+	MOVQ diag+32(FP), SI
+	MOVQ antidiag+40(FP), DI
 	LEAQ bytes<>+0(SB), R8
 
 	// Load Constants
@@ -118,6 +118,84 @@ TEXT ·CalcAttacks(SB), NOSPLIT, $0-64
 	// Extract
 	PEXTRQ $0x01, X0, AX
 	MOVQ   X0, CX
-	MOVQ   AX, ret+48(FP)
-	MOVQ   CX, ret1+56(FP)
+	ORQ    AX, CX
+	MOVQ   CX, ret+48(FP)
+	RET
+
+// func bishopRookAttacks(occupied uint64, location uint64, rankOrDiag uint64, fileOrAntiDiag uint64) uint64
+// Requires: AVX, SSE2, SSE3, SSE4.1
+TEXT ·bishopRookAttacks(SB), NOSPLIT, $0-40
+	MOVQ occupied+0(FP), AX
+	MOVQ location+8(FP), CX
+	MOVQ rankOrDiag+16(FP), DX
+	MOVQ fileOrAntiDiag+24(FP), BX
+	LEAQ bytes<>+0(SB), SI
+
+	// Load Constants
+	MOVAPD (SI), X1
+	MOVAPD 16(SI), X2
+	MOVAPD 32(SI), X3
+	MOVAPD 48(SI), X0
+
+	// Load Masks
+	MOVQ   DX, X4
+	MOVQ   BX, X5
+	SHUFPD $0x00, X5, X4
+
+	// Prep position vars
+	MOVQ    CX, X7
+	MOVDDUP X7, X7
+	MOVAPD  X7, X6
+	PSLLQ   $0x01, X6
+
+	// Prep data vars
+	MOVQ    AX, X5
+	MOVDDUP X5, X5
+	PAND    X4, X5
+
+	// Subtract first half
+	VPSUBQ X6, X5, X6
+
+	// Reverse pos
+	VPAND   X1, X7, X8
+	VPANDN  X7, X1, X7
+	VPSRLD  $0x04, X7, X7
+	VPSHUFB X8, X3, X8
+	VPSHUFB X7, X2, X7
+	VPOR    X7, X8, X7
+	VPSHUFB X0, X7, X7
+
+	// Shift pos
+	PSLLQ $0x01, X7
+
+	// Reverse data
+	VPAND   X1, X5, X8
+	VPANDN  X5, X1, X5
+	VPSRLD  $0x04, X5, X5
+	VPSHUFB X8, X3, X8
+	VPSHUFB X5, X2, X5
+	VPOR    X5, X8, X5
+	VPSHUFB X0, X5, X5
+
+	// Subtract second half
+	VPSUBQ X7, X5, X5
+
+	// Unreverse data
+	VPAND   X1, X5, X7
+	VPANDN  X5, X1, X5
+	VPSRLD  $0x04, X5, X5
+	VPSHUFB X7, X3, X7
+	VPSHUFB X5, X2, X5
+	VPOR    X5, X7, X5
+	VPSHUFB X0, X5, X5
+
+	// Finish
+	PXOR X6, X5
+	PAND X4, X5
+
+	// Extract
+	PEXTRQ $0x01, X5, AX
+	MOVQ   X5, CX
+	ORQ    AX, CX
+	MOVQ   CX, ret+32(FP)
 	RET

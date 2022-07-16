@@ -1,5 +1,7 @@
 package chess
 
+import "github.com/barakmich/chess/bitflip"
+
 type engine struct{}
 
 func (engine) CalcMoves(pos *Position, first bool) []*Move {
@@ -122,28 +124,30 @@ func squaresAreAttacked(board *Board, turn Color, sqs ...Square) bool {
 	occ := board.occupied()
 	for _, sq := range sqs {
 		// hot path check to see if attack vector is possible
+		dia := diaAttack(occ, sq)
+		hv := hvAttack(occ, sq)
 		s2BB := board.blackSqs()
 		if turn == Black {
 			s2BB = board.whiteSqs()
 		}
-		if ((diaAttack(occ, sq)|hvAttack(occ, sq))&s2BB)|(bbKnightMoves[sq]&s2BB) == 0 {
+		if ((dia|hv)&s2BB)|(bbKnightMoves[sq]&s2BB) == 0 {
 			continue
 		}
 		// check queen attack vector
 		queenBB := board.bbForPiece(GetPiece(Queen, otherColor))
-		bb := (diaAttack(occ, sq) | hvAttack(occ, sq)) & queenBB
+		bb := (dia | hv) & queenBB
 		if bb != 0 {
 			return true
 		}
 		// check rook attack vector
 		rookBB := board.bbForPiece(GetPiece(Rook, otherColor))
-		bb = hvAttack(occ, sq) & rookBB
+		bb = hv & rookBB
 		if bb != 0 {
 			return true
 		}
 		// check bishop attack vector
 		bishopBB := board.bbForPiece(GetPiece(Bishop, otherColor))
-		bb = diaAttack(occ, sq) & bishopBB
+		bb = dia & bishopBB
 		if bb != 0 {
 			return true
 		}
@@ -185,7 +189,7 @@ func bbForPossibleMoves(pos *Position, pt PieceType, sq Square) bitboard {
 	case King:
 		return bbKingMoves[sq]
 	case Queen:
-		return diaAttack(occupied, sq) | hvAttack(occupied, sq)
+		return queenAttack(occupied, sq)
 	case Rook:
 		return hvAttack(occupied, sq)
 	case Bishop:
@@ -273,16 +277,31 @@ func diaAttack(occupied bitboard, sq Square) bitboard {
 	pos := bbForSquare(sq)
 	dMask := bbDiagonals[int(sq)]
 	adMask := bbAntiDiagonals[int(sq)]
-	return linearAttack(occupied, pos, dMask) | linearAttack(occupied, pos, adMask)
+	return bitboard(bitflip.BishopRookAttacks(uint64(occupied), uint64(pos), uint64(dMask), uint64(adMask)))
 }
 
 func hvAttack(occupied bitboard, sq Square) bitboard {
 	pos := bbForSquare(sq)
 	rankMask := bbRanks[Square(sq).Rank()]
 	fileMask := bbFiles[Square(sq).File()]
-	return linearAttack(occupied, pos, rankMask) | linearAttack(occupied, pos, fileMask)
+	return bitboard(bitflip.BishopRookAttacks(uint64(occupied), uint64(pos), uint64(rankMask), uint64(fileMask)))
 }
 
+func queenAttack(occupied bitboard, sq Square) bitboard {
+	pos := bbForSquare(sq)
+	rankMask := bbRanks[Square(sq).Rank()]
+	fileMask := bbFiles[Square(sq).File()]
+	dMask := bbDiagonals[int(sq)]
+	adMask := bbAntiDiagonals[int(sq)]
+	return bitboard(bitflip.QueenAttacks(
+		uint64(occupied),
+		uint64(pos),
+		uint64(rankMask),
+		uint64(fileMask),
+		uint64(dMask),
+		uint64(adMask),
+	))
+}
 func linearAttack(occupied, pos, mask bitboard) bitboard {
 	oInMask := occupied & mask
 	return ((oInMask - (pos << 1)) ^ (oInMask.Reverse() - (pos.Reverse() << 1)).Reverse()) & mask

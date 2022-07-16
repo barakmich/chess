@@ -2,4 +2,6 @@
 
 package bitflip
 
-func CalcAttacks(occupied uint64, location uint64, angles [4]uint64) (uint64, uint64)
+func queenAttacks(occupied uint64, location uint64, rank uint64, file uint64, diag uint64, antidiag uint64) uint64
+
+func bishopRookAttacks(occupied uint64, location uint64, rankOrDiag uint64, fileOrAntiDiag uint64) uint64
