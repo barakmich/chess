@@ -45,46 +45,53 @@ func reverseBitsInYMMBytes(data reg.VecVirtual, m [3]reg.VecVirtual) {
 }
 
 func reverseYMMBytes(data reg.VecVirtual, byteRevMask reg.VecVirtual) reg.VecVirtual {
-	out := YMM()
-	VPSHUFB(byteRevMask, data, out) // AVX2
+	out := XMM()
+	VPSHUFB(byteRevMask, data, out) // AVX
 	return out
 }
 
 func main() {
 	bytes := GLOBL("bytes", RODATA|NOPTR)
+	// 256 bit
+	//DATA(0, U64(cm0[0]))
+	//DATA(8, U64(cm0[1]))
+	//DATA(16, U64(cm0[0]))
+	//DATA(24, U64(cm0[1]))
+	//DATA(32, U64(cm1le[1]))
+	//DATA(40, U64(cm1le[0]))
+	//DATA(48, U64(cm1le[1]))
+	//DATA(56, U64(cm1le[0]))
+	//DATA(64, U64(cm2le[1]))
+	//DATA(72, U64(cm2le[0]))
+	//DATA(80, U64(cm2le[1]))
+	//DATA(88, U64(cm2le[0]))
 	DATA(0, U64(cm0[0]))
 	DATA(8, U64(cm0[1]))
-	DATA(16, U64(cm0[0]))
-	DATA(24, U64(cm0[1]))
-	DATA(32, U64(cm1le[1]))
-	DATA(40, U64(cm1le[0]))
-	DATA(48, U64(cm1le[1]))
-	DATA(56, U64(cm1le[0]))
-	DATA(64, U64(cm2le[1]))
-	DATA(72, U64(cm2le[0]))
-	DATA(80, U64(cm2le[1]))
-	DATA(88, U64(cm2le[0]))
+	DATA(16, U64(cm1le[1]))
+	DATA(24, U64(cm1le[0]))
+	DATA(32, U64(cm2le[1]))
+	DATA(40, U64(cm2le[0]))
 
 	TEXT("Reverse64AVX", NOSPLIT, "func(x uint64) uint64")
 	Doc("Flips the bytes in x, MSB->LSB and vice-versa")
 	x := Load(Param("x"), GP64())
 	out := GP64()
-	data := YMM()
+	data := XMM()
 	bits.Reverse64(0x1)
-	MOVQ(x, data.AsX())
+	MOVQ(x, data)
 	bytesPtr := Mem{Base: GP64()}
 	LEAQ(bytes, bytesPtr.Base)
 
 	// TODO(load from data)
-	shuf := YMM()
+	shuf := XMM()
 	sa, sb := GP64(), GP64()
 	MOVQ(U64(shufConstA), sa)
 	MOVQ(U64(shufConstB), sb)
-	MOVQ(sb, shuf.AsX())
-	MOVLHPS(shuf.AsX(), shuf.AsX())
-	MOVQ(sa, shuf.AsX())
+	MOVQ(sb, shuf)
+	MOVLHPS(shuf, shuf)
+	MOVQ(sa, shuf)
 
-	m0, m1, m2 := YMM(), YMM(), YMM()
+	m0, m1, m2 := XMM(), XMM(), XMM()
 
 	//a := GP64()
 	//MOVQ(U64(cm0[0]), a)
@@ -101,10 +108,13 @@ func main() {
 	//VMOVLHPS(m1.AsX(), tmpA.AsX(), m1.AsX())
 	//VINSERTI128(U8(0x1), m1.AsX(), m1, m1)
 
-	VMOVDQA(bytesPtr.Offset(0), m0)
-	VMOVDQA(bytesPtr.Offset(32), m1)
-	VMOVDQA(bytesPtr.Offset(64), m2)
-	tmp := YMM()
+	MOVAPD(bytesPtr.Offset(0), m0)
+	MOVAPD(bytesPtr.Offset(16), m1)
+	MOVAPD(bytesPtr.Offset(32), m2)
+	//VMOVDQA(bytesPtr.Offset(0), m0)
+	//VMOVDQA(bytesPtr.Offset(32), m1)
+	//VMOVDQA(bytesPtr.Offset(64), m2)
+	tmp := XMM()
 	VPAND(m0, data, tmp)
 	VPANDN(data, m0, data)
 	VPSRLD(U8(0x4), data, data)
