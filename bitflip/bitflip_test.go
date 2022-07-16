@@ -18,22 +18,24 @@ func TestByteFlip(t *testing.T) {
 }
 
 func TestQueenAttacks(t *testing.T) {
-	sq := 27 // d4
-	occ := bbForSquare(sq)
-	exp := queenAttack(occ, sq)
-	out := queenAttackAVX(occ, sq)
-	if exp != out {
-		t.Errorf("Queen Attack mismatch: \ngot %064b\nexp %064b\n", out, exp)
+	for i := 0; i < 64; i++ {
+		occ := bbForSquare(27) | bbForSquare(i)
+		exp := queenAttack(occ, i)
+		out := queenAttackAVX(occ, i)
+		if exp != out {
+			t.Errorf("Queen Attack mismatch %d: \ngot %064b\nexp %064b\n", i, out, exp)
+		}
 	}
 }
 
 func TestBishopAttacks(t *testing.T) {
-	sq := 27 // d4
-	occ := bbForSquare(sq)
-	exp := diaAttack(occ, sq)
-	out := bishopAttackAVX(occ, sq)
-	if exp != out {
-		t.Errorf("Bishop mismatch: \ngot %064b\nexp %064b\n", out, exp)
+	for i := 0; i < 64; i++ {
+		occ := bbForSquare(i) | bbForSquare(27)
+		exp := diaAttack(occ, i)
+		out := bishopAttackAVX(occ, i)
+		if exp != out {
+			t.Errorf("Bishop mismatch: \ngot %064b\nexp %064b\n", out, exp)
+		}
 	}
 }
 

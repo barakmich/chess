@@ -189,7 +189,7 @@ func bbForPossibleMoves(pos *Position, pt PieceType, sq Square) bitboard {
 	case King:
 		return bbKingMoves[sq]
 	case Queen:
-		return queenAttack(occupied, sq)
+		return diaAttack(occupied, sq) | hvAttack(occupied, sq)
 	case Rook:
 		return hvAttack(occupied, sq)
 	case Bishop:
