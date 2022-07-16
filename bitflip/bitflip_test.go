@@ -6,7 +6,9 @@ import (
 )
 
 func TestByteFlip(t *testing.T) {
-	in := uint64(0x0123456789abcdef)
+	//	in := uint64(0x0123456789abcdef)
+
+	in := uint64(0x58)
 	//in = 0x5555555555555555
 	out := Reverse64AVX(in)
 	exp := bits.Reverse64(in)

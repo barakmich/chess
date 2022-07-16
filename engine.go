@@ -285,7 +285,7 @@ func hvAttack(occupied bitboard, sq Square) bitboard {
 
 func linearAttack(occupied, pos, mask bitboard) bitboard {
 	oInMask := occupied & mask
-	return ((oInMask - 2*pos) ^ (oInMask.Reverse() - 2*pos.Reverse()).Reverse()) & mask
+	return ((oInMask - (pos << 1)) ^ (oInMask.Reverse() - (pos.Reverse() << 1)).Reverse()) & mask
 }
 
 const (
