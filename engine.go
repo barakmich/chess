@@ -39,21 +39,27 @@ func standardMoves(pos *Position, first bool) []*Move {
 	moves := []*Move{}
 	// iterate through pieces to find possible moves
 	for _, typ := range allPieceTypes {
-		p := Piece(uint8(pos.Turn()<<4) | uint8(typ))
+		p := GetPiece(typ, pos.Turn())
 		// iterate through possible starting squares for piece
 		s1BB := pos.board.bbForPiece(p)
 		if s1BB == 0 {
 			continue
 		}
-		squares := s1BB.Squares()
-		for _, s1 := range squares {
+		for s1i := 0; s1i < numOfSquaresInBoard; s1i++ {
+			if s1BB&bbForSquare(Square(s1i)) == 0 {
+				continue
+			}
+			s1 := Square(s1i)
 			// iterate through possible destination squares for piece
 			s2BB := bbForPossibleMoves(pos, p.Type(), s1) & bbAllowed
 			if s2BB == 0 {
 				continue
 			}
-			toSquares := s2BB.Squares()
-			for _, s2 := range toSquares {
+			for s2i := 0; s2i < numOfSquaresInBoard; s2i++ {
+				if s2BB&bbForSquare(Square(s2i)) == 0 {
+					continue
+				}
+				s2 := Square(s2i)
 				// add promotions if pawn on promo square
 				if (p == WhitePawn && s2.Rank() == Rank8) || (p == BlackPawn && s2.Rank() == Rank1) {
 					for _, pt := range promoPieceTypes {
