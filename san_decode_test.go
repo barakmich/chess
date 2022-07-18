@@ -32,7 +32,11 @@ func BenchmarkOldOpeningDecode(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		game := NewGame()
 		for _, m := range opening {
-			err := game.MoveStr(m)
+			move, err := game.pos.DecodeSAN(m)
+			if err != nil {
+				b.Fatalf("Can't parse %s: %s", m, err)
+			}
+			err = game.Move(move)
 			if err != nil {
 				b.Fatalf("Couldn't move %s", m)
 			}
