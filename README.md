@@ -10,25 +10,34 @@
 
 ## This Fork
 
-**chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing at least), and is ideally more ergonomic to use.
+**barakmich/chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing, but even normal use), and is resturctured to be (in my opinion) more ergonomic to use.
 
-Already, the PGN scanner is much faster; compare [this test that parses real data](scanner_test.go) from https://database.lichess.org backported to upstream:
+It also includes some AVX-compatible assembly for doing move checks that is much faster than the original. The net result is greatly improved speed (useful for processing data from https://database.lichess.org).
+
+Here are the benchmarks
 ```
-$ benchstat old_scan.txt new_scan.txt
-name          old time/op  new time/op  delta
-BigScanner-4   20.7s  1%   10.4s  3%  -49.78%  (p=0.008 n=5+5)
+name                      old time/op  new time/op  delta
+BitboardReverse-4         0.31ns ± 0%  0.27ns ± 0%  -14.21%  (p=0.029 n=4+4)
+StalemateStatus-4         1.73µs ± 5%  0.42µs ± 1%  -75.50%  (p=0.008 n=5+5)
+InvalidStalemateStatus-4  1.35µs ± 6%  0.42µs ± 7%  -69.07%  (p=0.008 n=5+5)
+PositionHash-4            2.27µs ± 6%  2.14µs ±11%     ~     (p=0.151 n=5+5)
+ValidMoves-4              12.1µs ± 8%   6.9µs ± 8%  -43.23%  (p=0.008 n=5+5)
+PGN-4                     10.4ms ± 5%   1.2ms ± 9%  -88.15%  (p=0.008 n=5+5)
+BigScanner-4               20.7s ± 2%    4.2s ±11%  -79.76%  (p=0.008 n=5+5)
 ```
 
-But the real win comes when you can make use of Go's strengths! Goroutines!
+It also contains a Parallel PGN scanner, with the use of Goroutines, parsing the first 50,000 lines from a recent month of Lichess games:
+
 ```
-$ benchstat parallelbench.txt
-name                  time/op
-ParallelBigScanner-4  1.38s  0%
-BigScanner-4          10.9s  0%
+name                      time/op
+ParallelBigScanner-4       684ms ± 2%
+BigScanner-4               4.19s ±11%
 ```
 
-This is a pretty modest machine -- 4 cores. On my bigger 12 core box it's about 670ms. 
-So if you're parsing a lot of PGNs, you can get about a 40x improvement using this package.
+This is a pretty modest machine -- a 4 core AMD Ryzen 3 4300U (laptop processor). 
+On my bigger 12 core box (AMD Ryzen 9 3900X) it's about 475ms. 
+
+So if you're parsing a lot of PGNs, you can get about a 40x improvement using this package, if not more.
 
 ## Repo Structure
 
