@@ -1,6 +1,10 @@
 package chess
 
-import "github.com/barakmich/chess/bitflip"
+import (
+	"math/bits"
+
+	"github.com/barakmich/chess/bitflip"
+)
 
 type engine struct{}
 
@@ -45,11 +49,13 @@ func standardMoves(pos *Position, first bool) []*Move {
 		if s1BB == 0 {
 			continue
 		}
-		for s1i := 0; s1i < numOfSquaresInBoard; s1i++ {
-			if s1BB&bbForSquare(Square(s1i)) == 0 {
-				continue
+		for {
+			zeroes := bits.TrailingZeros64(uint64(s1BB))
+			if zeroes == 64 {
+				break
 			}
-			s1 := Square(s1i)
+			s1 := Square(zeroes)
+			s1BB = s1BB ^ bbForSquare(s1)
 			// iterate through possible destination squares for piece
 			var s2BB bitboard
 			if p.Type() == Pawn {
@@ -61,11 +67,13 @@ func standardMoves(pos *Position, first bool) []*Move {
 			if s2BB == 0 {
 				continue
 			}
-			for s2i := 0; s2i < numOfSquaresInBoard; s2i++ {
-				if s2BB&bbForSquare(Square(s2i)) == 0 {
-					continue
+			for {
+				s2zeroes := bits.TrailingZeros64(uint64(s2BB))
+				if s2zeroes == 64 {
+					break
 				}
-				s2 := Square(s2i)
+				s2 := Square(s2zeroes)
+				s2BB = s2BB ^ bbForSquare(s2)
 				// add promotions if pawn on promo square
 				if (p == WhitePawn && s2.Rank() == Rank8) || (p == BlackPawn && s2.Rank() == Rank1) {
 					for _, pt := range promoPieceTypes {
