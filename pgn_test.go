@@ -55,7 +55,7 @@ var (
 
 func TestValidPGNs(t *testing.T) {
 	for _, test := range validPGNs {
-		game, err := decodePGN(test.PGN)
+		game, err := decodePGN(test.PGN, false)
 		if err != nil {
 			t.Fatalf("recieved unexpected pgn error %s\n%s", err.Error(), test.PGN)
 		}

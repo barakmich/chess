@@ -61,10 +61,11 @@ func TestValidDecoding(t *testing.T) {
 }
 
 type notationDecodeTest struct {
-	N       Notation
-	Pos     *Position
-	Text    string
-	PostPos *Position
+	N        Notation
+	Pos      *Position
+	Text     string
+	PostPos  *Position
+	MoveText string
 }
 
 var (
@@ -111,6 +112,7 @@ var (
 
 func TestInvalidDecoding(t *testing.T) {
 	for _, test := range invalidDecodeTests {
+
 		if _, err := test.Pos.DecodeMove(test.Text, test.N); err == nil {
 			t.Fatalf("starting from board\n%s\n expected move notation %s to be invalid", test.Pos.board.Draw(), test.Text)
 		}

@@ -50,7 +50,7 @@ func parseSAN(s string, pos *Position) (Move, error) {
 		return parseSANTail(move, s[5:])
 	}
 	if strings.HasPrefix(s, "O-O") || strings.HasPrefix(s, "0-0") {
-		move = move.addTag(QueenSideCastle)
+		move = move.addTag(KingSideCastle)
 		if pos.turn == White {
 			move = move.setPiece(WhiteKing)
 			move = move.setS1(E1)
@@ -86,7 +86,11 @@ func parseSAN(s string, pos *Position) (Move, error) {
 
 	if strings.Contains(head, "x") {
 		// Double check
-		move = move.addTag(Capture)
+		if toSq == pos.enPassantSquare {
+			move = move.addTag(EnPassant)
+		} else {
+			move = move.addTag(Capture)
+		}
 		head = strings.ReplaceAll(head, "x", "")
 	}
 
@@ -133,7 +137,8 @@ func parseSAN(s string, pos *Position) (Move, error) {
 	if typ == NoPieceType {
 		return 0, fmt.Errorf("parseSAN: Couldn't deduce a piece type for `%s`", originalMove)
 	}
-	move = move.setPiece(GetPiece(typ, pos.Turn()))
+	thisPiece := GetPiece(typ, pos.Turn())
+	move = move.setPiece(thisPiece)
 	if p := pos.board.pieceAt(toSq); p != NoPiece {
 		if p.Color() != pos.turn.Other() {
 			if p.Type() == Rook && typ == King {
@@ -166,12 +171,11 @@ func parseSAN(s string, pos *Position) (Move, error) {
 			return 0, fmt.Errorf("parseSAN: `%s` appears to not capture but is moving onto a piece", originalMove)
 		}
 	}
-	s1, err := findAndValidateFromSquare(move.piece(), toSq, fileHint, rankHint, pos)
+	move = move.setS2(toSq)
+	move, err = findAndValidateFromSquare(thisPiece, move, fileHint, rankHint, pos)
 	if err != nil {
 		return 0, fmt.Errorf("parseSAN: for move `%s`, fAVS err: %s", originalMove, err)
 	}
-	move = move.setS1(s1)
-	move = move.setS2(toSq)
 	return parseSANTail(move, tail)
 }
 
@@ -229,10 +233,10 @@ func parseSANTail(move Move, s string) (Move, error) {
 	return move, nil
 }
 
-func findAndValidateFromSquare(p Piece, toSq Square, fileHint, rankHint int, pos *Position) (Square, error) {
+func findAndValidateFromSquare(p Piece, move Move, fileHint, rankHint int, pos *Position) (Move, error) {
 	if p.Type() == Pawn {
 		// Pawns can't move backwards, we have to know more.
-		return findAndValidatePawnSquare(p, toSq, fileHint, pos)
+		return findAndValidatePawnSquare(p, move, fileHint, pos)
 	}
 	currentPieces := pos.board.bbForPiece(p)
 	if fileHint != -1 {
@@ -242,36 +246,54 @@ func findAndValidateFromSquare(p Piece, toSq Square, fileHint, rankHint int, pos
 		currentPieces = currentPieces & bbRanks[rankHint]
 	}
 	if bits.OnesCount64(uint64(currentPieces)) == 1 {
-		return validateFromBB(currentPieces, toSq)
+		return validateFromBB(currentPieces, move)
 	}
 	occupied := pos.board.occupied()
-	thisSq := bbForSquare(toSq)
-	mask := bitboard(0b1)
-	for i := 0; i < 64; i++ {
-		if mask&currentPieces != 0 {
-			moves := bbForPossiblePieceMoves(occupied, p.Type(), Square(i))
-			if thisSq&moves != 0 {
-				return validateFromBB(mask, toSq)
-			}
+	thisSq := bbForSquare(move.S2())
+	possibilities := make([]bitboard, 0, 2)
+	for {
+		off := bits.TrailingZeros64(uint64(currentPieces))
+		if off == 64 {
+			break
 		}
-		mask = mask << 1
+		bb := bbForSquare(Square(off))
+		currentPieces = currentPieces ^ bb
+		moves := bbForPossiblePieceMoves(occupied, p.Type(), Square(off))
+		if thisSq&moves != 0 {
+			possibilities = append(possibilities, bb)
+		}
 	}
-	return NoSquare, errors.New("Can't find a potential piece to move")
+	if len(possibilities) == 1 {
+		return validateFromBB(possibilities[0], move)
+	}
+	// Okay, the reason we have no disambiguator, and have more than one possible move,
+	// is that moving one of these causes check to ourselves.
+	// Return the first that is possible (the other can't be)
+	for _, bb := range possibilities {
+		test := move.setS1(bbGetFirstSquare(bb))
+		board := pos.tempCopyBoard()
+		board.update(test)
+		if !isInCheck(board, p.Color()) {
+			return validateFromBB(bb, move)
+		}
+	}
+	return 0, errors.New("Can't find a potential piece to move")
 }
 
-func validateFromBB(fromSquareBB bitboard, toSq Square) (Square, error) {
+func validateFromBB(fromSquareBB bitboard, move Move) (Move, error) {
 	if fromSquareBB == 0 {
-		return NoSquare, fmt.Errorf("validateFromBB: couldn't find any potential pieces to move to %s", toSq)
+		return 0, fmt.Errorf("validateFromBB: couldn't find any potential pieces to move to %s", move)
 	}
 	if bits.OnesCount64(uint64(fromSquareBB)) != 1 {
-		return NoSquare, fmt.Errorf("validateFromBB: More than one apparent potential from piece moving to %s", toSq)
+		return 0, fmt.Errorf("validateFromBB: More than one apparent potential from piece moving to %s", move)
 	}
-	return bbGetFirstSquare(fromSquareBB), nil
+	return move.setS1(bbGetFirstSquare(fromSquareBB)), nil
 }
 
-func findAndValidatePawnSquare(p Piece, toSq Square, fileHint int, pos *Position) (Square, error) {
+func findAndValidatePawnSquare(p Piece, move Move, fileHint int, pos *Position) (Move, error) {
 	currentPawns := pos.board.bbForPiece(p)
 	var file File
+	toSq := move.S2()
 	if fileHint == -1 {
 		// This can't be a capture, according to SAN. So the file must be obvious.
 		file = toSq.File()
@@ -280,7 +302,7 @@ func findAndValidatePawnSquare(p Piece, toSq Square, fileHint int, pos *Position
 	}
 	var pawnBB bitboard
 	if file > 7 {
-		return Square(0), errors.New("How?")
+		return 0, errors.New("How?")
 	}
 	filePawns := currentPawns & bbFiles[file]
 	if pos.Turn() == White {
@@ -294,5 +316,10 @@ func findAndValidatePawnSquare(p Piece, toSq Square, fileHint int, pos *Position
 			pawnBB = filePawns & bbRank7
 		}
 	}
-	return validateFromBB(pawnBB, toSq)
+	return validateFromBB(pawnBB, move)
+}
+
+func drawBb(bb bitboard) string {
+	fmt.Println(bb.Draw())
+	return bb.Draw()
 }

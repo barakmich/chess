@@ -93,7 +93,7 @@ func parseGameWorker(i int, work chan string, out chan *Game, wg *sync.WaitGroup
 		if !ok {
 			break
 		}
-		game, err := decodePGN(s)
+		game, err := decodePGN(s, false)
 		if err != nil {
 			fmt.Println(i, "err:", err)
 		}

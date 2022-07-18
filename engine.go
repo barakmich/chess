@@ -351,14 +351,11 @@ func bbForSquare(sq Square) bitboard {
 }
 
 func bbGetFirstSquare(bb bitboard) Square {
-	mask := bitboard(0b1)
-	for i := 0; i < 64; i++ {
-		if mask&bb != 0 {
-			return Square(i)
-		}
-		mask = mask << 1
+	sq := bits.TrailingZeros64(uint64(bb))
+	if sq == 64 {
+		return NoSquare
 	}
-	return NoSquare
+	return Square(sq)
 }
 
 var (

@@ -10,6 +10,7 @@ type Notation int
 
 const (
 	SANNotation = iota
+	StrictSANNotation
 	UCINotation
 	LongAlgebraicNotation
 )
@@ -17,6 +18,8 @@ const (
 func (pos *Position) EncodeMove(m Move, n Notation) string {
 	switch n {
 	case SANNotation:
+		return pos.EncodeSAN(m)
+	case StrictSANNotation:
 		return pos.EncodeSAN(m)
 	case UCINotation:
 		return pos.EncodeUCI(m)
@@ -31,11 +34,16 @@ func (pos *Position) DecodeMove(s string, n ...Notation) (Move, error) {
 		switch n[0] {
 		case SANNotation:
 			return pos.DecodeSAN(s)
+		case StrictSANNotation:
+			return parseSAN(s, pos)
 		case UCINotation:
 			return pos.DecodeUCI(s)
 		case LongAlgebraicNotation:
 			return pos.DecodeLongAlgebraic(s)
 		}
+	}
+	if m, err := parseSAN(s, pos); err == nil {
+		return m, nil
 	}
 	if m, err := pos.DecodeSAN(s); err == nil {
 		return m, nil

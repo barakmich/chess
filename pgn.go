@@ -44,7 +44,7 @@ func (s *Scanner) Scan() bool {
 	var sb strings.Builder
 	state := notInPGN
 	setGame := func() bool {
-		game, err := decodePGN(sb.String())
+		game, err := decodePGN(sb.String(), false)
 		if err != nil {
 			s.err = err
 			return false
@@ -98,7 +98,7 @@ func (s *Scanner) Err() error {
 	return s.err
 }
 
-func decodePGN(pgn string) (*Game, error) {
+func decodePGN(pgn string, debug bool) (*Game, error) {
 	tagPairs := getTagPairs(pgn)
 	moveComments, outcome := moveListWithComments(pgn)
 	var g *Game
@@ -120,9 +120,21 @@ func decodePGN(pgn string) (*Game, error) {
 	}
 	g.ignoreAutomaticDraws = true
 	for _, move := range moveComments {
-		m, err := g.Position().DecodeMove(move.MoveStr)
+		//m, err := g.Position().DecodeMove(move.MoveStr)
+		m, err := parseSAN(move.MoveStr, g.Position())
 		if err != nil {
 			return nil, fmt.Errorf("chess: pgn decode error %s on move %d", err.Error(), g.Position().moveCount)
+		}
+		if debug {
+			cmp, err := g.Position().DecodeMove(move.MoveStr)
+			if err != nil {
+				fmt.Printf("decodePGN: debug error in parsing: %s\n", err)
+			}
+			if cmp != m {
+				fmt.Printf("Found a difference on move %d: got %s expected %s\n%s\n", g.Position().moveCount, cmp.StringWithTags(), m.StringWithTags(), pgn)
+				fmt.Printf("\nTest case:\n {\n\tN: SANNotation,\n\tPos: unsafeFEN(\"%s\"),\n\tText: \"%s\",\n\tMoveText: \"%s\",\n},\n\n", g.Position().String(), move.MoveStr, m.StringWithTags())
+				panic("Gottem")
+			}
 		}
 		if err := g.Move(m); err != nil {
 			return nil, fmt.Errorf("chess: pgn invalid move error %s on move %d", err.Error(), g.Position().moveCount)
@@ -178,7 +190,7 @@ type moveWithComment struct {
 	Comments []string
 }
 
-var moveListTokenRe = regexp.MustCompile(`(?:\d+\.)|(O-O(?:-O)?|\w*[abcdefgh][12345678]\w*(?:=[QRBN])?(?:\+|#)?)|(?:\{([^}]*)\})|(?:\([^)]*\))|(\*|0-1|1-0|1\/2-1\/2)`)
+var moveListTokenRe = regexp.MustCompile(`(?:\d+\.)|(O-O(?:-O)?(?:\+|#)?|\w*[abcdefgh][12345678]\w*(?:=[QRBN])?(?:\+|#)?)|(?:\{([^}]*)\})|(?:\([^)]*\))|(\*|0-1|1-0|1\/2-1\/2)`)
 
 func moveListWithComments(pgn string) ([]moveWithComment, Outcome) {
 	pgn = stripTagPairs(pgn)

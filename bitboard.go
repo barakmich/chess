@@ -70,7 +70,3 @@ func (b bitboard) Draw() string {
 	}
 	return s
 }
-
-func DrawBitboard(bb bitboard) string {
-	return bb.Draw()
-}

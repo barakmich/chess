@@ -1,6 +1,9 @@
 package chess
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // A MoveTag represents a notable consequence of a move.
 type MoveTag uint16
@@ -56,6 +59,11 @@ func NewMove(s1 Square, s2 Square, promo PromoType, piece ...Piece) Move {
 // algebraic notation.
 func (m Move) String() string {
 	return fmt.Sprintf("%s%s%s", m.S1().String(), m.S2().String(), m.Promo().PieceType().String())
+}
+
+func (m Move) StringWithTags() string {
+	return m.String() + "-" + strconv.Itoa(int(m.tags()))
+
 }
 
 const moveS1Mask = 0xFF

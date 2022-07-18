@@ -230,10 +230,11 @@ func (b *Board) update(m Move) {
 	s2BB := bbForSquare(m.S2())
 
 	// move s1 piece to s2
-	for _, p := range allPieces {
-		bb := b.bbForPiece(p)
-		// remove what was at s2
-		b.setBBForPiece(p, bb & ^s2BB)
+	if m.HasTag(Capture) {
+		for i := 0; i < 12; i++ {
+			// remove what was at s2
+			b.array[i] = b.array[i] & ^s2BB
+		}
 	}
 
 	bb := b.bbForPiece(p1)
@@ -320,11 +321,11 @@ func (b *Board) blackSqs() bitboard {
 
 func (b *Board) occupied() bitboard {
 	if b.occupiedCache == 0 {
-		var total uint64
+		var total bitboard
 		for i := 0; i < 12; i++ {
-			total = total | uint64(b.array[i])
+			total = total | b.array[i]
 		}
-		b.occupiedCache = bitboard(total)
+		b.occupiedCache = total
 	}
 	return b.occupiedCache
 }

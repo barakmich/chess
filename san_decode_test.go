@@ -44,22 +44,33 @@ func BenchmarkOldOpeningDecode(b *testing.B) {
 var (
 	validParseTests = []notationDecodeTest{
 		{
+			N:        SANNotation,
+			Pos:      unsafeFEN("r2qk1nr/pp3ppp/2n1p3/1B1pPb2/1b1P4/2N1B3/PP2NPPP/R2QK2R b KQkq - 3 9"),
+			Text:     "Ne7",
+			MoveText: "g8e7-0",
+		},
+		{
 			N:    SANNotation,
 			Pos:  unsafeFEN("r2q2kr/1p3pbp/p1npbnp1/3Np3/4P3/PN2BB2/1PP2PPP/R2Q2KR b - - 5 12"),
 			Text: "Rc8",
 		},
 		{
-			N:    SANNotation,
-			Pos:  unsafeFEN("6k1/3n2p1/4NpP1/p1pr1P2/2P1R2P/P1P5/4K3/8 w - - 1 36"),
-			Text: "c4",
+			N:        SANNotation,
+			Pos:      unsafeFEN("r3k2r/p1p1npbp/1pn1p1p1/4P3/4PBP1/5N2/PPP4P/R2K1B1R b kq - 2 12"),
+			Text:     "O-O-O+",
+			MoveText: "e8c8-18",
 		},
 	}
 )
 
-func TestValidParseFailures(t *testing.T) {
+func TestSANParseFailures(t *testing.T) {
 	for _, p := range validParseTests {
-		if _, err := parseSAN(p.Text, p.Pos); err != nil {
-			t.Fatalf("starting from board\n%s\n expected move notation %s to be valid", p.Pos.board.Draw(), p.Text)
+		m, err := parseSAN(p.Text, p.Pos)
+		if err != nil {
+			t.Fatalf("starting from board\n%s\n expected move notation %s to be valid:\n %s", p.Pos.board.Draw(), p.Text, err)
+		}
+		if p.MoveText != "" && p.MoveText != m.StringWithTags() {
+			t.Fatalf("staring from board\n%s\nexpected move %s to be `%s` but got `%s`", p.Pos.board.Draw(), p.Text, p.MoveText, m.StringWithTags())
 		}
 	}
 }
