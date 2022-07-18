@@ -148,17 +148,17 @@ const (
 	// WhitePawn is a white pawn
 	WhitePawn Piece = 5
 	// BlackKing is a black king
-	BlackKing Piece = 16
+	BlackKing Piece = 6
 	// BlackQueen is a black queen
-	BlackQueen Piece = 17
+	BlackQueen Piece = 7
 	// BlackRook is a black rook
-	BlackRook Piece = 18
+	BlackRook Piece = 8
 	// BlackBishop is a black bishop
-	BlackBishop Piece = 19
+	BlackBishop Piece = 9
 	// BlackKnight is a black knight
-	BlackKnight Piece = 20
+	BlackKnight Piece = 10
 	// BlackPawn is a black pawn
-	BlackPawn Piece = 21
+	BlackPawn Piece = 11
 	// NoPiece represents no piece
 	NoPiece Piece = 255
 )
@@ -171,17 +171,26 @@ var (
 )
 
 func GetPiece(t PieceType, c Color) Piece {
-	return Piece(uint8(c)<<4 | uint8(t))
+	if c == Black {
+		return Piece(t + 6)
+	}
+	return Piece(t)
 }
 
 // Type returns the type of the piece.
 func (p Piece) Type() PieceType {
-	return PieceType(p & 0xF)
+	return PieceType(p % 6)
 }
 
 // Color returns the color of the piece.
 func (p Piece) Color() Color {
-	return Color(p >> 4)
+	if p == NoPiece {
+		return NoColor
+	}
+	if p > 5 {
+		return Black
+	}
+	return White
 }
 
 // String implements the fmt.Stringer interface

@@ -14,7 +14,7 @@ const lightSquares uint64 = 0x55AA55AA55AA55AA
 
 // A Board represents a chess board and its relationship between squares and pieces.
 type Board struct {
-	array         [22]bitboard
+	array         [12]bitboard
 	whiteKingSq   Square
 	blackKingSq   Square
 	occupiedCache bitboard
@@ -202,11 +202,7 @@ func (b *Board) UnmarshalText(text []byte) error {
 // WhitePawn, BlackKing, BlackQueen, BlackRook, BlackBishop, BlackKnight, BlackPawn
 func (b *Board) MarshalBinary() (data []byte, err error) {
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, b.array[:6])
-	if err != nil {
-		return nil, err
-	}
-	err = binary.Write(buf, binary.BigEndian, b.array[16:])
+	err = binary.Write(buf, binary.BigEndian, b.array)
 	return buf.Bytes(), err
 }
 
@@ -218,11 +214,8 @@ func (b *Board) UnmarshalBinary(data []byte) error {
 	if len(data) != 96 {
 		return errors.New("chess: invalid number of bytes for board unmarshal binary")
 	}
-	for i := 0; i < 48; i += 8 {
+	for i := 0; i < (8 * 12); i += 8 {
 		b.array[i>>3] = bitboard(binary.BigEndian.Uint64(data[i : i+8]))
-	}
-	for i := 0; i < 48; i += 8 {
-		b.array[(i>>3)+16] = bitboard(binary.BigEndian.Uint64(data[i+48 : i+48+8]))
 	}
 	b.updateKings(nil)
 	return nil
@@ -259,7 +252,10 @@ func (b *Board) update(m *Move) {
 	// remove captured en passant piece
 	if m.HasTag(EnPassant) {
 		if p1.Color() == White {
-			b.setBBForPiece(BlackPawn, ^(bbForSquare(m.s2)>>8)&b.bbForPiece(BlackPawn))
+			mask := bbForSquare(m.s2) >> 8
+			pieces := b.bbForPiece(BlackPawn)
+			total := ^(mask) & pieces
+			b.setBBForPiece(BlackPawn, total)
 		} else {
 			b.setBBForPiece(WhitePawn, ^(bbForSquare(m.s2)<<8)&b.bbForPiece(WhitePawn))
 		}
@@ -270,7 +266,7 @@ func (b *Board) update(m *Move) {
 	} else if p1.Color() == White && m.HasTag(QueenSideCastle) {
 		b.setBBForPiece(WhiteRook, (b.bbForPiece(WhiteRook) & ^bbForSquare(A1))|bbForSquare(D1))
 	} else if p1.Color() == Black && m.HasTag(KingSideCastle) {
-		b.setBBForPiece(BlackRook, b.bbForPiece(BlackRook) & ^bbForSquare(H8) | bbForSquare(F8))
+		b.setBBForPiece(BlackRook, (b.bbForPiece(BlackRook) & ^bbForSquare(H8) | bbForSquare(F8)))
 	} else if p1.Color() == Black && m.HasTag(QueenSideCastle) {
 		b.setBBForPiece(BlackRook, (b.bbForPiece(BlackRook) & ^bbForSquare(A8))|bbForSquare(D8))
 	}
@@ -299,7 +295,7 @@ func (b *Board) updateKings(m *Move) {
 }
 
 func (b *Board) copyInto(other *Board) {
-	for i := 0; i < 22; i++ {
+	for i := 0; i < 12; i++ {
 		other.array[i] = b.array[i]
 	}
 	other.whiteKingSq = b.whiteKingSq
@@ -325,7 +321,7 @@ func (b *Board) blackSqs() bitboard {
 func (b *Board) occupied() bitboard {
 	if b.occupiedCache == 0 {
 		var total uint64
-		for i := 0; i < 22; i++ {
+		for i := 0; i < 12; i++ {
 			total = total | uint64(b.array[i])
 		}
 		b.occupiedCache = bitboard(total)
@@ -353,7 +349,7 @@ func (b *Board) hasSufficientMaterial() bool {
 
 	for i := 0; i < 6; i++ {
 		count[PieceType(i)] += bits.OnesCount64(uint64(b.array[i]))
-		count[PieceType(i)] += bits.OnesCount64(uint64(b.array[i+16]))
+		count[PieceType(i)] += bits.OnesCount64(uint64(b.array[i+6]))
 	}
 
 	// 	king versus king
