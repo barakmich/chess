@@ -14,9 +14,10 @@ const lightSquares uint64 = 0x55AA55AA55AA55AA
 
 // A Board represents a chess board and its relationship between squares and pieces.
 type Board struct {
-	array       [22]bitboard
-	whiteKingSq Square
-	blackKingSq Square
+	array         [22]bitboard
+	whiteKingSq   Square
+	blackKingSq   Square
+	occupiedCache bitboard
 }
 
 // NewBoard returns a board from a square to piece mapping.
@@ -149,6 +150,16 @@ func (b *Board) String() string {
 	return fen
 }
 
+// Eq returns whether this board is the same as the other board
+func (b *Board) Eq(other *Board) bool {
+	for i, v := range b.array {
+		if v != other.array[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // FEN returns the FEN representation of the board.
 func (b *Board) FEN() string {
 	return b.String()
@@ -264,6 +275,7 @@ func (b *Board) update(m *Move) {
 		b.array[BlackRook] = (b.array[BlackRook] & ^bbForSquare(A8)) | bbForSquare(D8)
 	}
 	b.updateKings(m)
+	b.occupiedCache = 0
 }
 
 func (b *Board) updateKings(m *Move) {
@@ -311,11 +323,14 @@ func (b *Board) blackSqs() bitboard {
 }
 
 func (b *Board) occupied() bitboard {
-	var total uint64
-	for i := 0; i < 22; i++ {
-		total = total | uint64(b.array[i])
+	if b.occupiedCache == 0 {
+		var total uint64
+		for i := 0; i < 22; i++ {
+			total = total | uint64(b.array[i])
+		}
+		b.occupiedCache = bitboard(total)
 	}
-	return bitboard(total)
+	return b.occupiedCache
 }
 
 func (b *Board) isOccupied(sq Square) bool {
@@ -373,7 +388,8 @@ func (b *Board) setBBForPiece(p Piece, bb bitboard) {
 	b.array[p] = bb
 }
 
-func (b *Board) pieceAt(mask uint64) Piece {
+func (b *Board) pieceAt(sq Square) Piece {
+	mask := uint64(0b1) << int(sq)
 	for i, bb := range b.array {
 		if uint64(bb)&mask != 0 {
 			return Piece(i)
