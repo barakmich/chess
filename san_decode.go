@@ -16,9 +16,9 @@ func pieceFromChar(c rune) Piece {
 	return v
 }
 
-func parseSAN(s string, pos *Position) (*Move, error) {
+func parseSAN(s string, pos *Position) (Move, error) {
 	if s == "--" {
-		return nil, nil
+		return 0, nil
 	}
 	s = strings.TrimSpace(s)
 
@@ -27,38 +27,38 @@ func parseSAN(s string, pos *Position) (*Move, error) {
 		fileHint int = -1
 		rankHint int = -1
 		toSq     Square
-		move     *Move = &Move{}
+		move     Move
 		err      error
 	)
 
 	if len(s) < 2 {
-		return nil, errors.New("parseSAN: invalid move")
+		return 0, errors.New("parseSAN: invalid move")
 	}
 
 	// Handle castling
 	if strings.HasPrefix(s, "O-O-O") || strings.HasPrefix(s, "0-0-0") {
-		move.addTag(QueenSideCastle)
+		move = move.addTag(QueenSideCastle)
 		if pos.turn == White {
-			move.piece = WhiteKing
-			move.s1 = E1
-			move.s2 = C1
+			move = move.setPiece(WhiteKing)
+			move = move.setS1(E1)
+			move = move.setS2(C1)
 		} else {
-			move.piece = BlackKing
-			move.s1 = E8
-			move.s2 = C8
+			move = move.setPiece(BlackKing)
+			move = move.setS1(E8)
+			move = move.setS2(C8)
 		}
 		return parseSANTail(move, s[5:])
 	}
 	if strings.HasPrefix(s, "O-O") || strings.HasPrefix(s, "0-0") {
-		move.addTag(KingSideCastle)
+		move = move.addTag(QueenSideCastle)
 		if pos.turn == White {
-			move.piece = WhiteKing
-			move.s1 = E1
-			move.s2 = G1
+			move = move.setPiece(WhiteKing)
+			move = move.setS1(E1)
+			move = move.setS2(G1)
 		} else {
-			move.piece = BlackKing
-			move.s1 = E8
-			move.s2 = G8
+			move = move.setPiece(BlackKing)
+			move = move.setS1(E8)
+			move = move.setS2(G8)
 		}
 		return parseSANTail(move, s[3:])
 	}
@@ -73,7 +73,7 @@ func parseSAN(s string, pos *Position) (*Move, error) {
 	}
 	if lastNum == -1 || lastNum < 1 {
 		// We didn't find any numbers, this isn't valid.
-		return nil, fmt.Errorf("parseSAN: couldn't find a square number in `%s`", s)
+		return 0, fmt.Errorf("parseSAN: couldn't find a square number in `%s`", s)
 	}
 
 	// Split the parts of the move
@@ -86,7 +86,7 @@ func parseSAN(s string, pos *Position) (*Move, error) {
 
 	if strings.Contains(head, "x") {
 		// Double check
-		move.addTag(Capture)
+		move = move.addTag(Capture)
 		head = strings.ReplaceAll(head, "x", "")
 	}
 
@@ -105,7 +105,7 @@ func parseSAN(s string, pos *Position) (*Move, error) {
 			if fileHint > 7 {
 				// We're assuming a pawn, but thanks to the capitilization rule, this
 				// is just incorrect (eg, "nf3")
-				return nil, fmt.Errorf("parseSAN: invalid capitalization `%s` for move `%s`", head, originalMove)
+				return 0, fmt.Errorf("parseSAN: invalid capitalization `%s` for move `%s`", head, originalMove)
 			}
 		}
 	case 2:
@@ -131,45 +131,47 @@ func parseSAN(s string, pos *Position) (*Move, error) {
 		fileHint = int(fromSq.File())
 	}
 	if typ == NoPieceType {
-		return nil, fmt.Errorf("parseSAN: Couldn't deduce a piece type for `%s`", originalMove)
+		return 0, fmt.Errorf("parseSAN: Couldn't deduce a piece type for `%s`", originalMove)
 	}
-	move.piece = GetPiece(typ, pos.Turn())
+	move = move.setPiece(GetPiece(typ, pos.Turn()))
 	if p := pos.board.pieceAt(toSq); p != NoPiece {
 		if p.Color() != pos.turn.Other() {
 			if p.Type() == Rook && typ == King {
 				// This may be a castle by other means.
 				if p.Color() == White && pos.board.whiteKingSq == E1 && (toSq == A1 || toSq == H1) {
-					move.s1 = E1
+					move = move.setS1(E1)
 					if toSq == A1 {
-						move.addTag(QueenSideCastle)
-						move.s2 = C1
+						move = move.addTag(QueenSideCastle)
+						move = move.setS2(C1)
 					} else {
-						move.addTag(KingSideCastle)
-						move.s2 = G1
+						move = move.addTag(KingSideCastle)
+						move = move.setS2(G1)
 					}
 					return parseSANTail(move, tail)
 				} else if p.Color() == Black && pos.board.blackKingSq == E8 && (toSq == A8 || toSq == H8) {
-					move.s1 = E8
+					move = move.setS1(E8)
 					if toSq == A8 {
-						move.addTag(QueenSideCastle)
-						move.s2 = C8
+						move = move.addTag(QueenSideCastle)
+						move = move.setS2(C8)
 					} else {
-						move.addTag(KingSideCastle)
-						move.s2 = G8
+						move = move.addTag(KingSideCastle)
+						move = move.setS2(G8)
 					}
+					return parseSANTail(move, tail)
 				}
 			}
-			return nil, fmt.Errorf("parseSAN: `%s` apparently trying to capture own piece?", originalMove)
+			return 0, fmt.Errorf("parseSAN: `%s` apparently trying to capture own piece?", originalMove)
 		}
 		if !move.HasTag(Capture) {
-			return nil, fmt.Errorf("parseSAN: `%s` appears to not capture but is moving onto a piece", originalMove)
+			return 0, fmt.Errorf("parseSAN: `%s` appears to not capture but is moving onto a piece", originalMove)
 		}
 	}
-	move.s1, err = findAndValidateFromSquare(move.piece, toSq, fileHint, rankHint, pos)
+	s1, err := findAndValidateFromSquare(move.piece(), toSq, fileHint, rankHint, pos)
 	if err != nil {
-		return nil, fmt.Errorf("parseSAN: for move `%s`, fAVS err: %s", originalMove, err)
+		return 0, fmt.Errorf("parseSAN: for move `%s`, fAVS err: %s", originalMove, err)
 	}
-	move.s2 = toSq
+	move = move.setS1(s1)
+	move = move.setS2(toSq)
 	return parseSANTail(move, tail)
 }
 
@@ -181,7 +183,7 @@ func parseSANQuality(s string) string {
 	return s
 }
 
-func parseSANTail(move *Move, s string) (*Move, error) {
+func parseSANTail(move Move, s string) (Move, error) {
 	if s == "" {
 		return move, nil
 	}
@@ -190,39 +192,39 @@ func parseSANTail(move *Move, s string) (*Move, error) {
 		return move, nil
 	}
 	if strings.Contains(s, "ep") {
-		move.addTag(EnPassant)
+		move = move.addTag(EnPassant)
 		s = strings.ReplaceAll(s, "ep", "")
 	}
 	if strings.Contains(s, "e.p.") {
-		move.addTag(EnPassant)
+		move = move.addTag(EnPassant)
 		s = strings.ReplaceAll(s, "e.p.", "")
 	}
 	if strings.Contains(s, "+") {
-		move.addTag(Check)
+		move = move.addTag(Check)
 		s = strings.ReplaceAll(s, "+", "")
 	}
 	if strings.Contains(s, "#") {
-		move.addTag(Check)
+		move = move.addTag(Check)
 		s = strings.ReplaceAll(s, "#", "")
 		// TODO(barakmich): Validate checkmate iff we see this symbol
 	}
 	if idx := strings.Index(s, "="); idx != -1 {
 		switch s[idx : idx+2] {
 		case "=Q", "=q":
-			move.promo = PromoQueen
+			move = move.setPromo(PromoQueen)
 		case "=R", "=r":
-			move.promo = PromoRook
+			move = move.setPromo(PromoRook)
 		case "=B", "=b":
-			move.promo = PromoBishop
+			move = move.setPromo(PromoBishop)
 		case "=N", "=n":
-			move.promo = PromoKnight
+			move = move.setPromo(PromoKnight)
 		default:
-			return nil, fmt.Errorf("parseSANTail: detected promotion but can't parse `%s`", s)
+			return 0, fmt.Errorf("parseSANTail: detected promotion but can't parse `%s`", s)
 		}
 		s = s[:idx] + s[idx+2:]
 	}
 	if s != "" {
-		return nil, fmt.Errorf("parseSANTail: Remaining tail characters: `%s`", s)
+		return 0, fmt.Errorf("parseSANTail: Remaining tail characters: `%s`", s)
 	}
 	return move, nil
 }

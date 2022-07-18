@@ -33,7 +33,7 @@ func NewBoard(m map[Square]Piece) *Board {
 		bb := newBitboard(bm)
 		b.setBBForPiece(p1, bb)
 	}
-	b.updateKings(nil)
+	b.updateKings(0)
 	return b
 }
 
@@ -217,17 +217,17 @@ func (b *Board) UnmarshalBinary(data []byte) error {
 	for i := 0; i < (8 * 12); i += 8 {
 		b.array[i>>3] = bitboard(binary.BigEndian.Uint64(data[i : i+8]))
 	}
-	b.updateKings(nil)
+	b.updateKings(0)
 	return nil
 }
 
-func (b *Board) update(m *Move) {
-	p1 := m.piece
+func (b *Board) update(m Move) {
+	p1 := m.piece()
 	if p1 == NoPiece {
-		p1 = b.Piece(m.s1)
+		p1 = b.Piece(m.S1())
 	}
-	s1BB := bbForSquare(m.s1)
-	s2BB := bbForSquare(m.s2)
+	s1BB := bbForSquare(m.S1())
+	s2BB := bbForSquare(m.S2())
 
 	// move s1 piece to s2
 	for _, p := range allPieces {
@@ -240,8 +240,8 @@ func (b *Board) update(m *Move) {
 	b.setBBForPiece(p1, (bb & ^s1BB)|s2BB)
 
 	// check promotion
-	if m.promo != NoPromo {
-		newPiece := GetPiece(m.promo.PieceType(), p1.Color())
+	if m.Promo() != NoPromo {
+		newPiece := GetPiece(m.Promo().PieceType(), p1.Color())
 		// remove pawn
 		bbPawn := b.bbForPiece(p1)
 		b.setBBForPiece(p1, bbPawn & ^s2BB)
@@ -252,12 +252,12 @@ func (b *Board) update(m *Move) {
 	// remove captured en passant piece
 	if m.HasTag(EnPassant) {
 		if p1.Color() == White {
-			mask := bbForSquare(m.s2) >> 8
+			mask := bbForSquare(m.S2()) >> 8
 			pieces := b.bbForPiece(BlackPawn)
 			total := ^(mask) & pieces
 			b.setBBForPiece(BlackPawn, total)
 		} else {
-			b.setBBForPiece(WhitePawn, ^(bbForSquare(m.s2)<<8)&b.bbForPiece(WhitePawn))
+			b.setBBForPiece(WhitePawn, ^(bbForSquare(m.S2())<<8)&b.bbForPiece(WhitePawn))
 		}
 	}
 	// move rook for castle
@@ -274,8 +274,8 @@ func (b *Board) update(m *Move) {
 	b.occupiedCache = 0
 }
 
-func (b *Board) updateKings(m *Move) {
-	if m == nil {
+func (b *Board) updateKings(m Move) {
+	if m == 0 {
 		b.whiteKingSq = NoSquare
 		b.blackKingSq = NoSquare
 
@@ -287,10 +287,10 @@ func (b *Board) updateKings(m *Move) {
 				b.blackKingSq = sqr
 			}
 		}
-	} else if m.s1 == b.whiteKingSq {
-		b.whiteKingSq = m.s2
-	} else if m.s1 == b.blackKingSq {
-		b.blackKingSq = m.s2
+	} else if m.S1() == b.whiteKingSq {
+		b.whiteKingSq = m.S2()
+	} else if m.S1() == b.blackKingSq {
+		b.blackKingSq = m.S2()
 	}
 }
 

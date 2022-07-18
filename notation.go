@@ -14,7 +14,7 @@ const (
 	LongAlgebraicNotation
 )
 
-func (pos *Position) EncodeMove(m *Move, n Notation) string {
+func (pos *Position) EncodeMove(m Move, n Notation) string {
 	switch n {
 	case SANNotation:
 		return pos.EncodeSAN(m)
@@ -26,7 +26,7 @@ func (pos *Position) EncodeMove(m *Move, n Notation) string {
 	panic("unreachable")
 }
 
-func (pos *Position) DecodeMove(s string, n ...Notation) (*Move, error) {
+func (pos *Position) DecodeMove(s string, n ...Notation) (Move, error) {
 	if len(n) != 0 {
 		switch n[0] {
 		case SANNotation:
@@ -46,72 +46,72 @@ func (pos *Position) DecodeMove(s string, n ...Notation) (*Move, error) {
 	if m, err := pos.DecodeUCI(s); err == nil {
 		return m, nil
 	}
-	return nil, fmt.Errorf(`chess: failed to decode notation text "%s" for position %s`, s, pos)
+	return 0, fmt.Errorf(`chess: failed to decode notation text "%s" for position %s`, s, pos)
 }
 
 // Encode implements the Encoder interface.
-func (pos *Position) EncodeUCI(m *Move) string {
-	return m.S1().String() + m.S2().String() + m.Promo().String()
+func (pos *Position) EncodeUCI(m Move) string {
+	return m.S1().String() + m.S2().String() + m.Promo().PieceType().String()
 }
 
 // Decode implements the Decoder interface.
-func (pos *Position) DecodeUCI(s string) (*Move, error) {
+func (pos *Position) DecodeUCI(s string) (Move, error) {
 	l := len(s)
 	err := fmt.Errorf(`chess: failed to decode long algebraic notation text "%s" for position %s`, s, pos)
 	if l < 4 || l > 5 {
-		return nil, err
+		return 0, err
 	}
 	s1, ok := strToSquareMap[s[0:2]]
 	if !ok {
-		return nil, err
+		return 0, err
 	}
 	s2, ok := strToSquareMap[s[2:4]]
 	if !ok {
-		return nil, err
+		return 0, err
 	}
 	promo := NoPieceType
 	if l == 5 {
 		promo = pieceTypeFromChar(s[4:5])
 		if promo == NoPieceType {
-			return nil, err
+			return 0, err
 		}
 	}
-	m := &Move{s1: s1, s2: s2, promo: promoFromPieceType(promo)}
+	m := NewMove(s1, s2, promoFromPieceType(promo))
 	if pos == nil {
 		return m, nil
 	}
 	p := pos.Board().Piece(s1)
-	m.piece = p
+	m = m.setPiece(p)
 	if p.Type() == King {
 		if (s1 == E1 && s2 == G1) || (s1 == E8 && s2 == G8) {
-			m.addTag(KingSideCastle)
+			m = m.addTag(KingSideCastle)
 		} else if (s1 == E1 && s2 == C1) || (s1 == E8 && s2 == C8) {
-			m.addTag(QueenSideCastle)
+			m = m.addTag(QueenSideCastle)
 		}
 	} else if p.Type() == Pawn && s2 == pos.enPassantSquare {
-		m.addTag(EnPassant)
-		m.addTag(Capture)
+		m = m.addTag(EnPassant)
+		m = m.addTag(Capture)
 	}
 	c1 := p.Color()
 	c2 := pos.Board().Piece(s2).Color()
 	if c2 != NoColor && c1 != c2 {
-		m.addTag(Capture)
+		m = m.addTag(Capture)
 	}
 	return m, nil
 }
 
-func (pos *Position) EncodeSAN(m *Move) string {
+func (pos *Position) EncodeSAN(m Move) string {
 	return pos.encodeSANInternal(m, nil)
 }
 
-func (pos *Position) encodeSANInternal(m *Move, validMoves []*Move) string {
+func (pos *Position) encodeSANInternal(m Move, validMoves []Move) string {
 	checkChar := getCheckChar(pos, m)
 	if m.HasTag(KingSideCastle) {
 		return "O-O" + checkChar
 	} else if m.HasTag(QueenSideCastle) {
 		return "O-O-O" + checkChar
 	}
-	p := m.piece
+	p := m.piece()
 	if p == NoPiece {
 		p = pos.Board().Piece(m.S1())
 	}
@@ -121,15 +121,15 @@ func (pos *Position) encodeSANInternal(m *Move, validMoves []*Move) string {
 	if m.HasTag(Capture) || m.HasTag(EnPassant) {
 		capChar = "x"
 		if p.Type() == Pawn && s1Str == "" {
-			capChar = m.s1.File().String() + "x"
+			capChar = m.S1().File().String() + "x"
 		}
 	}
-	promoText := charForPromo(m.promo)
+	promoText := charForPromo(m.Promo())
 	var sb strings.Builder
 	sb.WriteString(pChar)
 	sb.WriteString(s1Str)
 	sb.WriteString(capChar)
-	sb.WriteString(m.s2.String())
+	sb.WriteString(m.S2().String())
 	sb.WriteString(promoText)
 	sb.WriteString(checkChar)
 	return sb.String()
@@ -145,13 +145,8 @@ func algebraicNotationParts(s string) ([]string, error) {
 	return submatches, nil
 }
 
-type moveAndStr struct {
-	str  string
-	move *Move
-}
-
 // Decode implements the Decoder interface.
-func (pos *Position) DecodeSAN(s string) (*Move, error) {
+func (pos *Position) DecodeSAN(s string) (Move, error) {
 
 	pos.ensureValidMoves()
 	validMoveStrings := make([]string, len(pos.validMoves))
@@ -162,13 +157,13 @@ func (pos *Position) DecodeSAN(s string) (*Move, error) {
 
 	for i, moveStr := range validMoveStrings {
 		if strings.HasPrefix(moveStr, s) {
-			return pos.validMoves[i].copy(), nil
+			return pos.validMoves[i], nil
 		}
 	}
 
 	submatches, err := algebraicNotationParts(s)
 	if err != nil {
-		return nil, fmt.Errorf("chess: %+v for position %s", err, pos.String())
+		return 0, fmt.Errorf("chess: %+v for position %s", err, pos.String())
 	}
 	piece := submatches[1]
 	originFile := submatches[2]
@@ -192,7 +187,7 @@ func (pos *Position) DecodeSAN(s string) (*Move, error) {
 
 	for i, move := range validMoveStrings {
 		if strings.HasPrefix(move, cleaned) {
-			return pos.validMoves[i].copy(), nil
+			return pos.validMoves[i], nil
 		}
 	}
 
@@ -218,44 +213,44 @@ func (pos *Position) DecodeSAN(s string) (*Move, error) {
 	for i, move := range validMoveStrings {
 		for _, opt := range options {
 			if strings.HasPrefix(move, opt) {
-				return pos.validMoves[i].copy(), nil
+				return pos.validMoves[i], nil
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("chess: could not decode algebraic notation %s for position %s", s, pos.String())
+	return 0, fmt.Errorf("chess: could not decode algebraic notation %s for position %s", s, pos.String())
 }
 
-func (pos *Position) EncodeLongAlgebraic(m *Move) string {
+func (pos *Position) EncodeLongAlgebraic(m Move) string {
 	checkChar := getCheckChar(pos, m)
 	if m.HasTag(KingSideCastle) {
 		return "O-O" + checkChar
 	} else if m.HasTag(QueenSideCastle) {
 		return "O-O-O" + checkChar
 	}
-	p := m.piece
+	p := m.piece()
 	if p == NoPiece {
 		p = pos.Board().Piece(m.S1())
 	}
 	pChar := charFromPieceType(p.Type())
-	s1Str := m.s1.String()
+	s1Str := m.S1().String()
 	capChar := ""
 	if m.HasTag(Capture) || m.HasTag(EnPassant) {
 		capChar = "x"
 		if p.Type() == Pawn && s1Str == "" {
-			capChar = m.s1.File().String() + "x"
+			capChar = m.S1().File().String() + "x"
 		}
 	}
-	promoText := charForPromo(m.promo)
-	return pChar + s1Str + capChar + m.s2.String() + promoText + checkChar
+	promoText := charForPromo(m.Promo())
+	return pChar + s1Str + capChar + m.S2().String() + promoText + checkChar
 }
 
 // Decode implements the Decoder interface.
-func (pos *Position) DecodeLongAlgebraic(s string) (*Move, error) {
+func (pos *Position) DecodeLongAlgebraic(s string) (Move, error) {
 	return pos.DecodeSAN(s)
 }
 
-func getCheckChar(pos *Position, move *Move) string {
+func getCheckChar(pos *Position, move Move) string {
 	if !move.HasTag(Check) {
 		return ""
 	}
@@ -266,10 +261,10 @@ func getCheckChar(pos *Position, move *Move) string {
 	return "+"
 }
 
-func formS1(pos *Position, m *Move, moves []*Move) string {
-	p := m.piece
+func formS1(pos *Position, m Move, moves []Move) string {
+	p := m.piece()
 	if p == NoPiece {
-		p = pos.board.Piece(m.s1)
+		p = pos.board.Piece(m.S1())
 	}
 	if p.Type() == Pawn || p.Type() == King {
 		return ""
@@ -281,15 +276,15 @@ func formS1(pos *Position, m *Move, moves []*Move) string {
 	}
 
 	for _, mv := range moves {
-		otherPiece := mv.piece
-		if mv.s1 != m.s1 && mv.s2 == m.s2 && p == otherPiece {
+		otherPiece := mv.piece()
+		if mv.S1() != m.S1() && mv.S2() == m.S2() && p == otherPiece {
 			req = true
 
-			if mv.s1.File() == m.s1.File() {
+			if mv.S1().File() == m.S1().File() {
 				rankReq = true
 			}
 
-			if mv.s1.Rank() == m.s1.Rank() {
+			if mv.S1().Rank() == m.S1().Rank() {
 				fileReq = true
 			}
 		}
@@ -298,11 +293,11 @@ func formS1(pos *Position, m *Move, moves []*Move) string {
 	var s1 = ""
 
 	if fileReq || !rankReq && req {
-		s1 = m.s1.File().String()
+		s1 = m.S1().File().String()
 	}
 
 	if rankReq {
-		s1 += m.s1.Rank().String()
+		s1 += m.S1().Rank().String()
 	}
 
 	return s1

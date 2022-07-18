@@ -52,7 +52,7 @@ type Position struct {
 	halfMoveClock   int
 	moveCount       int
 	inCheck         bool
-	validMoves      []*Move
+	validMoves      []Move
 }
 
 const (
@@ -70,16 +70,16 @@ func StartingPosition() *Position {
 // The move itself isn't validated, if validation is needed use
 // Game's Move method.  This method is more performant for bots that
 // rely on the ValidMoves because it skips redundant validation.
-func (pos *Position) Update(m *Move) *Position {
+func (pos *Position) Update(m Move) *Position {
 	moveCount := pos.moveCount
 	if pos.turn == Black {
 		moveCount++
 	}
 	cr := pos.CastleRights()
 	ncr := pos.updateCastleRights(m)
-	p := m.piece
+	p := m.piece()
 	if p == NoPiece {
-		p = pos.board.Piece(m.s1)
+		p = pos.board.Piece(m.S1())
 	}
 	halfMove := pos.halfMoveClock
 	if p.Type() == Pawn || m.HasTag(Capture) || cr != ncr {
@@ -102,9 +102,9 @@ func (pos *Position) Update(m *Move) *Position {
 }
 
 // ValidMoves returns a list of valid moves for the position.
-func (pos *Position) ValidMoves() []*Move {
+func (pos *Position) ValidMoves() []Move {
 	pos.ensureValidMoves()
-	return append([]*Move(nil), pos.validMoves...)
+	return append([]Move(nil), pos.validMoves...)
 }
 
 func (pos *Position) ensureValidMoves() {
@@ -311,22 +311,22 @@ func (pos *Position) finishTempCopy(b *Board) {
 	tmpBoardPool.Put(b)
 }
 
-func (pos *Position) updateCastleRights(m *Move) CastleRights {
+func (pos *Position) updateCastleRights(m Move) CastleRights {
 	cr := string(pos.castleRights)
-	p := m.piece
+	p := m.piece()
 	if p == NoPiece {
-		p = pos.board.Piece(m.s1)
+		p = pos.board.Piece(m.S1())
 	}
-	if p == WhiteKing || m.s1 == H1 || m.s2 == H1 {
+	if p == WhiteKing || m.S1() == H1 || m.S2() == H1 {
 		cr = strings.Replace(cr, "K", "", -1)
 	}
-	if p == WhiteKing || m.s1 == A1 || m.s2 == A1 {
+	if p == WhiteKing || m.S1() == A1 || m.S2() == A1 {
 		cr = strings.Replace(cr, "Q", "", -1)
 	}
-	if p == BlackKing || m.s1 == H8 || m.s2 == H8 {
+	if p == BlackKing || m.S1() == H8 || m.S2() == H8 {
 		cr = strings.Replace(cr, "k", "", -1)
 	}
-	if p == BlackKing || m.s1 == A8 || m.s2 == A8 {
+	if p == BlackKing || m.S1() == A8 || m.S2() == A8 {
 		cr = strings.Replace(cr, "q", "", -1)
 	}
 	if cr == "" {
@@ -335,22 +335,22 @@ func (pos *Position) updateCastleRights(m *Move) CastleRights {
 	return CastleRights(cr)
 }
 
-func (pos *Position) updateEnPassantSquare(m *Move) Square {
-	p := m.piece
+func (pos *Position) updateEnPassantSquare(m Move) Square {
+	p := m.piece()
 	if p == NoPiece {
-		p = pos.board.Piece(m.s1)
+		p = pos.board.Piece(m.S1())
 	}
 	if p.Type() != Pawn {
 		return NoSquare
 	}
 	if pos.turn == White &&
-		(bbForSquare(m.s1)&bbRank2) != 0 &&
-		(bbForSquare(m.s2)&bbRank4) != 0 {
-		return Square(m.s2 - 8)
+		(bbForSquare(m.S1())&bbRank2) != 0 &&
+		(bbForSquare(m.S2())&bbRank4) != 0 {
+		return Square(m.S2() - 8)
 	} else if pos.turn == Black &&
-		(bbForSquare(m.s1)&bbRank7) != 0 &&
-		(bbForSquare(m.s2)&bbRank5) != 0 {
-		return Square(m.s2 + 8)
+		(bbForSquare(m.S1())&bbRank7) != 0 &&
+		(bbForSquare(m.S2())&bbRank5) != 0 {
+		return Square(m.S2() + 8)
 	}
 	return NoSquare
 }

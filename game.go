@@ -67,7 +67,7 @@ type TagPair struct {
 type Game struct {
 	Notation             Notation
 	tagPairs             map[string]string
-	moves                []*Move
+	moves                []Move
 	positions            []*Position
 	pos                  *Position
 	outcome              Outcome
@@ -115,7 +115,7 @@ func NewGame() *Game {
 	pos := StartingPosition()
 	game := &Game{
 		Notation:  SANNotation,
-		moves:     []*Move{},
+		moves:     []Move{},
 		pos:       pos,
 		positions: []*Position{pos},
 		outcome:   NoOutcome,
@@ -126,7 +126,7 @@ func NewGame() *Game {
 
 // Move updates the game with the given move.  An error is returned
 // if the move is invalid or the game has already been completed.
-func (g *Game) Move(m *Move) error {
+func (g *Game) Move(m Move) error {
 	g.pos.ensureValidMoves()
 	valid := false
 	for _, v := range g.pos.validMoves {
@@ -138,7 +138,7 @@ func (g *Game) Move(m *Move) error {
 	if !valid {
 		return fmt.Errorf("chess: invalid move %s", m)
 	}
-	v := m.copy()
+	v := m
 	g.moves = append(g.moves, v)
 	g.pos = g.pos.Update(v)
 	g.positions = append(g.positions, g.pos)
@@ -161,7 +161,7 @@ func (g *Game) MoveStr(s string) error {
 
 // ValidMoves returns a list of valid moves in the
 // current position.
-func (g *Game) ValidMoves() []*Move {
+func (g *Game) ValidMoves() []Move {
 	return g.pos.ValidMoves()
 }
 
@@ -171,8 +171,8 @@ func (g *Game) Positions() []*Position {
 }
 
 // Moves returns the move history of the game.
-func (g *Game) Moves() []*Move {
-	return append([]*Move(nil), g.moves...)
+func (g *Game) Moves() []Move {
+	return append([]Move(nil), g.moves...)
 }
 
 // TagPairs returns the game's tag pairs.
@@ -319,7 +319,7 @@ func (g *Game) RemoveTagPair(k string) bool {
 type MoveHistory struct {
 	PrePosition  *Position
 	PostPosition *Position
-	Move         *Move
+	Move         Move
 }
 
 // MoveHistory returns the moves in order along with the pre and post
