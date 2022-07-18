@@ -51,7 +51,13 @@ func standardMoves(pos *Position, first bool) []*Move {
 			}
 			s1 := Square(s1i)
 			// iterate through possible destination squares for piece
-			s2BB := bbForPossibleMoves(pos, p.Type(), s1) & bbAllowed
+			var s2BB bitboard
+			if p.Type() == Pawn {
+				s2BB = pawnMoves(pos, s1)
+			} else {
+				s2BB = bbForPossiblePieceMoves(pos.board.occupied(), p.Type(), s1)
+			}
+			s2BB = s2BB & bbAllowed
 			if s2BB == 0 {
 				continue
 			}
@@ -189,8 +195,7 @@ func squaresAreAttacked(board *Board, turn Color, sqs ...Square) bool {
 	return false
 }
 
-func bbForPossibleMoves(pos *Position, pt PieceType, sq Square) bitboard {
-	occupied := pos.board.occupied()
+func bbForPossiblePieceMoves(occupied bitboard, pt PieceType, sq Square) bitboard {
 	switch pt {
 	case King:
 		return bbKingMoves[sq]
@@ -202,8 +207,6 @@ func bbForPossibleMoves(pos *Position, pt PieceType, sq Square) bitboard {
 		return diaAttack(occupied, sq)
 	case Knight:
 		return bbKnightMoves[sq]
-	case Pawn:
-		return pawnMoves(pos, sq)
 	}
 	return bitboard(0)
 }
@@ -336,6 +339,17 @@ const (
 // TODO make method on Square
 func bbForSquare(sq Square) bitboard {
 	return bitboard(0b1 << sq)
+}
+
+func bbGetFirstSquare(bb bitboard) Square {
+	mask := bitboard(0b1)
+	for i := 0; i < 64; i++ {
+		if mask&bb != 0 {
+			return Square(i)
+		}
+		mask = mask << 1
+	}
+	return NoSquare
 }
 
 var (
