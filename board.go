@@ -259,20 +259,20 @@ func (b *Board) update(m *Move) {
 	// remove captured en passant piece
 	if m.HasTag(EnPassant) {
 		if p1.Color() == White {
-			b.array[BlackPawn] = ^(bbForSquare(m.s2) >> 8) & b.array[BlackPawn]
+			b.setBBForPiece(BlackPawn, ^(bbForSquare(m.s2)>>8)&b.bbForPiece(BlackPawn))
 		} else {
-			b.array[WhitePawn] = ^(bbForSquare(m.s2) << 8) & b.array[WhitePawn]
+			b.setBBForPiece(WhitePawn, ^(bbForSquare(m.s2)<<8)&b.bbForPiece(WhitePawn))
 		}
 	}
 	// move rook for castle
 	if p1.Color() == White && m.HasTag(KingSideCastle) {
-		b.array[WhiteRook] = (b.array[WhiteRook] & ^bbForSquare(H1) | bbForSquare(F1))
+		b.setBBForPiece(WhiteRook, (b.bbForPiece(WhiteRook) & ^bbForSquare(H1) | bbForSquare(F1)))
 	} else if p1.Color() == White && m.HasTag(QueenSideCastle) {
-		b.array[WhiteRook] = (b.array[WhiteRook] & ^bbForSquare(A1)) | bbForSquare(D1)
+		b.setBBForPiece(WhiteRook, (b.bbForPiece(WhiteRook) & ^bbForSquare(A1))|bbForSquare(D1))
 	} else if p1.Color() == Black && m.HasTag(KingSideCastle) {
-		b.array[BlackRook] = (b.array[BlackRook] & ^bbForSquare(H8) | bbForSquare(F8))
+		b.setBBForPiece(BlackRook, b.bbForPiece(BlackRook) & ^bbForSquare(H8) | bbForSquare(F8))
 	} else if p1.Color() == Black && m.HasTag(QueenSideCastle) {
-		b.array[BlackRook] = (b.array[BlackRook] & ^bbForSquare(A8)) | bbForSquare(D8)
+		b.setBBForPiece(BlackRook, (b.bbForPiece(BlackRook) & ^bbForSquare(A8))|bbForSquare(D8))
 	}
 	b.updateKings(m)
 	b.occupiedCache = 0

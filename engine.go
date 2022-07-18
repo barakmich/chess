@@ -171,15 +171,15 @@ func squaresAreAttacked(board *Board, turn Color, sqs ...Square) bool {
 		}
 		// check pawn attack vector
 		if turn == White {
-			capLeft := (board.array[BlackPawn] & ^bbFileH & ^bbRank1) >> 7
-			capRight := (board.array[BlackPawn] & ^bbFileA & ^bbRank1) >> 9
+			capLeft := (board.bbForPiece(BlackPawn) & ^bbFileH & ^bbRank1) >> 7
+			capRight := (board.bbForPiece(BlackPawn) & ^bbFileA & ^bbRank1) >> 9
 			bb = (capRight | capLeft) & bbForSquare(sq)
 			if bb != 0 {
 				return true
 			}
 		} else {
-			capLeft := (board.array[WhitePawn] & ^bbFileH & ^bbRank8) << 9
-			capRight := (board.array[WhitePawn] & ^bbFileA & ^bbRank8) << 7
+			capLeft := (board.bbForPiece(WhitePawn) & ^bbFileH & ^bbRank8) << 9
+			capRight := (board.bbForPiece(WhitePawn) & ^bbFileA & ^bbRank8) << 7
 			bb = (capRight | capLeft) & bbForSquare(sq)
 			if bb != 0 {
 				return true
