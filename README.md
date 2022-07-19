@@ -10,7 +10,7 @@
 
 ## This Fork
 
-**barakmich/chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing, but even normal use), and is resturctured to be (in my opinion) more ergonomic to use.
+**barakmich/chess** is a friendly fork of [notnil/chess](https://github.com/notnil/chess) that refactors a bunch of things, provides much better performance (for PGN parsing, but even normal use), and is restructured to be (in my opinion) more ergonomic to use.
 
 It also includes some AVX-compatible assembly for doing move checks that is much faster than the original. The net result is greatly improved speed (useful for processing data from https://database.lichess.org).
 
