@@ -10,11 +10,11 @@ import (
 	"github.com/barakmich/chess"
 )
 
-func EncodeUCI(m *chess.Move) string {
+func EncodeUCI(m chess.Move) string {
 	return (*chess.Position)(nil).EncodeUCI(m)
 }
 
-func DecodeUCI(m string) (*chess.Move, error) {
+func DecodeUCI(m string) (chess.Move, error) {
 	return (*chess.Position)(nil).DecodeUCI(m)
 }
 
@@ -160,7 +160,7 @@ func (cmd CmdSetOption) ProcessResponse(e *Engine) error {
 // the last position sent to the engine, the GUI should have sent a "ucinewgame" inbetween.
 type CmdPosition struct {
 	Position *chess.Position
-	Moves    []*chess.Move
+	Moves    []chess.Move
 }
 
 func (cmd CmdPosition) String() string {
@@ -224,7 +224,7 @@ func (CmdPosition) ProcessResponse(e *Engine) error {
 // * infinite
 // 	search until the "stop" command. Do not exit the search without being told so in this mode!
 type CmdGo struct {
-	SearchMoves    []*chess.Move
+	SearchMoves    []chess.Move
 	Ponder         bool
 	WhiteTime      time.Duration
 	BlackTime      time.Duration

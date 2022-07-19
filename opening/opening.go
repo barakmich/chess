@@ -41,7 +41,7 @@ func (o *Opening) Game() *chess.Game {
 // Book is an opening book that returns openings for move sequences
 type Book interface {
 	// Find returns the most specific opening for the list of moves.  If no opening is found, Find returns nil.
-	Find(moves []*chess.Move) *Opening
+	Find(moves []chess.Move) *Opening
 	// Possible returns the possible openings after the moves given.  If moves is empty or nil all openings are returned.
-	Possible(moves []*chess.Move) []*Opening
+	Possible(moves []chess.Move) []*Opening
 }

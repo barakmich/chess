@@ -50,7 +50,7 @@ func NewBookECO() *BookECO {
 }
 
 // Find implements the Book interface
-func (b *BookECO) Find(moves []*chess.Move) *Opening {
+func (b *BookECO) Find(moves []chess.Move) *Opening {
 	for n := b.followPath(b.root, moves); n != nil; n = n.parent {
 		if n.opening != nil {
 			return n.opening
@@ -60,7 +60,7 @@ func (b *BookECO) Find(moves []*chess.Move) *Opening {
 }
 
 // Possible implements the Book interface
-func (b *BookECO) Possible(moves []*chess.Move) []*Opening {
+func (b *BookECO) Possible(moves []chess.Move) []*Opening {
 	n := b.followPath(b.root, moves)
 	openings := []*Opening{}
 	for _, n := range b.nodeList(n) {
@@ -71,7 +71,7 @@ func (b *BookECO) Possible(moves []*chess.Move) []*Opening {
 	return openings
 }
 
-func (b *BookECO) followPath(n *node, moves []*chess.Move) *node {
+func (b *BookECO) followPath(n *node, moves []chess.Move) *node {
 	if len(moves) == 0 {
 		return n
 	}
@@ -84,7 +84,7 @@ func (b *BookECO) followPath(n *node, moves []*chess.Move) *node {
 
 func (b *BookECO) insert(o *Opening) error {
 	posList := []*chess.Position{b.startingPosition}
-	moves := []*chess.Move{}
+	moves := []chess.Move{}
 	for _, s := range parseMoveList(o.pgn) {
 		pos := posList[len(posList)-1]
 		m, err := pos.DecodeUCI(s)
@@ -99,7 +99,7 @@ func (b *BookECO) insert(o *Opening) error {
 	return nil
 }
 
-func (b *BookECO) ins(n *node, o *Opening, posList []*chess.Position, moves []*chess.Move) {
+func (b *BookECO) ins(n *node, o *Opening, posList []*chess.Position, moves []chess.Move) {
 	pos := posList[0]
 	move := moves[0]
 	moveStr := move.String()

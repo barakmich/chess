@@ -14,8 +14,8 @@ import (
 // info depth 21 seldepth 31 multipv 1 score cp 39 nodes 862438 nps 860716 hashfull 409 tbhits 0 time 1002 pv e2e4
 // bestmove e2e4 ponder c7c5
 type SearchResults struct {
-	BestMove *chess.Move
-	Ponder   *chess.Move
+	BestMove chess.Move
+	Ponder   chess.Move
 	Info     Info
 }
 
@@ -86,12 +86,12 @@ type SearchResults struct {
 type Info struct {
 	Depth             int
 	Seldepth          int
-	PV                []*chess.Move
+	PV                []chess.Move
 	Multipv           int
 	Time              time.Duration
 	Nodes             int
 	Score             Score
-	CurrentMove       *chess.Move
+	CurrentMove       chess.Move
 	CurrentMoveNumber int
 	Hashfull          int
 	NPS               int
