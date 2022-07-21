@@ -129,6 +129,18 @@ func (pos *Position) Turn() Color {
 	return pos.turn
 }
 
+func (pos *Position) MoveCount() int {
+	return pos.moveCount
+}
+
+func (pos *Position) HalfMoveClock() int {
+	return pos.halfMoveClock
+}
+
+func (pos *Position) EnPassantSquare() Square {
+	return pos.enPassantSquare
+}
+
 // CastleRights returns the castling rights of the position.
 func (pos *Position) CastleRights() CastleRights {
 	return pos.castleRights
