@@ -182,5 +182,13 @@
 		"longAlgText": "Nd5f6",
 		"uciText": "d5f6",
 		"description" : "https://lichess.org/analysis/fromPosition/r7/1R1nk3/2R1p3/p2n1p2/P5p1/4P3/1P2KPP1/8_b_-_-_1_35"
+	},
+	{
+		"pos1": "rnb1k1nr/ppp2ppp/8/2bpp1q1/4P1Q1/7K/PPPP1PPP/RNB2BNR b kq - 1 6",
+		"pos2": "rnb1k1nr/ppp2ppp/8/2bpp3/4P1q1/7K/PPPP1PPP/RNB2BNR w kq - 0 7",
+		"algText": "Qxg4#",
+		"longAlgText": "Qg5xg4",
+		"uciText": "g5g4",
+		"description" : "taking with checkmate"
 	}
 ]

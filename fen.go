@@ -46,6 +46,7 @@ func decodeFEN(fen string) (*Position, error) {
 		enPassantSquare: sq,
 		halfMoveClock:   halfMoveClock,
 		moveCount:       moveCount,
+		inCheck:         isInCheck(b, turn),
 	}, nil
 }
 

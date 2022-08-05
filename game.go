@@ -91,17 +91,22 @@ func NewGameFromPGN(r io.Reader) (*Game, error) {
 	return game, nil
 }
 
-// FEN takes a string and returns a function that creates
+// NewGameFromFEN takes a string and returns a function that creates
 // the game to reflect the FEN data.  Since FEN doesn't encode
 // prior moves, the move list will be empty.
 // An error is returned if there is a problem parsing the FEN data.
 func NewGameFromFEN(fen string) (*Game, error) {
-	g := NewGame()
 	pos, err := decodeFEN(fen)
 	if err != nil {
 		return nil, err
 	}
-	pos.inCheck = isInCheck(pos.board, pos.turn)
+	return NewGameFromPosition(pos)
+}
+
+// NewGameFromPosition allows for building a position from scratch,
+// (via NewPosition) and getting a game started out of it.
+func NewGameFromPosition(pos *Position) (*Game, error) {
+	g := NewGame()
 	g.pos = pos
 	g.positions = []*Position{pos}
 	g.updatePosition()

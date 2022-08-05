@@ -55,6 +55,22 @@ type Position struct {
 	validMoves      []Move
 }
 
+func NewPosition(board *Board, turn Color, castle CastleRights, epSquare Square) *Position {
+	return NewPositionAtTime(board, turn, castle, epSquare, 0, 1)
+}
+
+func NewPositionAtTime(board *Board, turn Color, castle CastleRights, epSquare Square, halfmove, moveCount int) *Position {
+	return &Position{
+		board:           board,
+		turn:            turn,
+		castleRights:    castle,
+		enPassantSquare: epSquare,
+		halfMoveClock:   halfmove,
+		moveCount:       moveCount,
+		inCheck:         isInCheck(board, turn),
+	}
+}
+
 const (
 	startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 )
