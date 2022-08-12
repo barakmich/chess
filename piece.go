@@ -219,6 +219,6 @@ var (
 	}
 )
 
-func (p Piece) getFENChar() string {
+func (p Piece) FENChar() string {
 	return string(fenReverseMap[p])
 }
